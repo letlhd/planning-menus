@@ -27,13 +27,20 @@ interface SlotState {
 
 export default function WeekPlanReview({ results, onDone, onClose }: WeekPlanReviewProps) {
   const [slots, setSlots] = useState<SlotState[]>(() =>
-    results.map((r) => ({
-      date: r.date,
-      mealType: r.mealType,
-      meal: r.meal as unknown as Meal,
-      validated: false,
-      swapping: false,
-    }))
+    results
+      .map((r) => ({
+        date: r.date,
+        mealType: r.mealType,
+        meal: r.meal as unknown as Meal,
+        validated: false,
+        swapping: false,
+      }))
+      .sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date);
+        // Déjeuner avant Dîner le même jour
+        if (a.mealType === b.mealType) return 0;
+        return a.mealType === "LUNCH" ? -1 : 1;
+      })
   );
   const [saving, setSaving] = useState(false);
   const [activeSwap, setActiveSwap] = useState<string | null>(null);
@@ -156,17 +163,20 @@ export default function WeekPlanReview({ results, onDone, onClose }: WeekPlanRev
               {/* En-tête du slot */}
               <div
                 className="px-4 py-2 flex items-center justify-between"
-                style={{ background: slot.validated ? "var(--sage)" : "var(--muted)" }}
+                style={{
+                  background: slot.validated
+                    ? "var(--sage)"
+                    : slot.mealType === "LUNCH"
+                    ? "var(--gold)"
+                    : "var(--terracotta)",
+                }}
               >
-                <span className="text-xs font-semibold capitalize" style={{ color: slot.validated ? "white" : "var(--muted-foreground)" }}>
-                  {dayLabel}
+                <span className="text-xs font-semibold capitalize text-white">
+                  {slot.mealType === "LUNCH" ? "🥣 Déjeuner" : "🍽️ Dîner"} · {dayLabel}
                 </span>
-                <span
-                  className="text-xs font-medium px-2 py-0.5 rounded-full"
-                  style={{ background: "rgba(0,0,0,0.1)", color: slot.validated ? "white" : "var(--muted-foreground)" }}
-                >
-                  {slot.mealType === "DINNER" ? "Dîner" : "Déjeuner"}
-                </span>
+                {slot.validated && (
+                  <span className="text-xs font-bold text-white">✓</span>
+                )}
               </div>
 
               {/* Contenu */}

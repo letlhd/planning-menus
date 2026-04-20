@@ -76,6 +76,15 @@ export default function MealCard({
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
+              <span
+                className="text-[10px] font-bold px-1.5 py-0.5 rounded-md shrink-0"
+                style={{
+                  background: pm.mealType === "LUNCH" ? "var(--gold)" : "var(--terracotta)",
+                  color: "white",
+                }}
+              >
+                {pm.mealType === "LUNCH" ? "🥣 Déj." : "🍽️ Dîner"}
+              </span>
               <h3 className="font-semibold text-base truncate">{currentMeal.name}</h3>
             </div>
             <div className="flex items-center gap-3 text-xs" style={{ color: "var(--muted-foreground)" }}>
