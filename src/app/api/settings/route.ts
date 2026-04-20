@@ -31,24 +31,35 @@ const DEFAULT_SETTINGS = {
 };
 
 export async function GET() {
-  let settings = await prisma.settings.findUnique({ where: { id: "singleton" } });
+  try {
+    let settings = await prisma.settings.findUnique({ where: { id: "singleton" } });
 
-  if (!settings) {
-    settings = await prisma.settings.create({ data: DEFAULT_SETTINGS });
+    if (!settings) {
+      settings = await prisma.settings.create({ data: DEFAULT_SETTINGS });
+    }
+
+    return NextResponse.json(settings);
+  } catch (e) {
+    console.error("[GET /api/settings] Erreur Prisma — fallback sur defaults :", e);
+    // Fallback : renvoie les valeurs par défaut pour que la page puisse s'afficher
+    return NextResponse.json(DEFAULT_SETTINGS);
   }
-
-  return NextResponse.json(settings);
 }
 
 export async function PUT(req: NextRequest) {
-  const body = await req.json();
-  const data = SettingsSchema.parse(body);
+  try {
+    const body = await req.json();
+    const data = SettingsSchema.parse(body);
 
-  const settings = await prisma.settings.upsert({
-    where: { id: "singleton" },
-    update: data,
-    create: { ...DEFAULT_SETTINGS, ...data },
-  });
+    const settings = await prisma.settings.upsert({
+      where: { id: "singleton" },
+      update: data,
+      create: { ...DEFAULT_SETTINGS, ...data },
+    });
 
-  return NextResponse.json(settings);
+    return NextResponse.json(settings);
+  } catch (e) {
+    console.error("[PUT /api/settings] Erreur Prisma :", e);
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
 }
