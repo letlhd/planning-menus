@@ -5,6 +5,7 @@ import { format, addDays, startOfWeek, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
 import type { PlannedMeal } from "@/types";
 import MealCard from "@/components/meals/MealCard";
+import { mealEmoji } from "@/components/meals/MealPickerSheet";
 import GenerateModal, { type GeneratedResult } from "@/components/meals/GenerateModal";
 import WeekPlanReview from "@/components/meals/WeekPlanReview";
 
@@ -99,24 +100,62 @@ export default function WeekPage() {
 
       {/* Récap semaine */}
       {plannedMeals.length > 0 && (
-        <section className="mt-6">
+        <section className="mt-6 mb-6">
           <h2 className="text-base font-medium mb-3" style={{ color: "var(--muted-foreground)" }}>
             Vue d&apos;ensemble
           </h2>
-          <div className="grid grid-cols-7 gap-1">
+          <div className="space-y-1">
             {weekDays.map((day, i) => {
-              const meal = plannedMeals.find((pm) =>
-                isSameDay(new Date(String(pm.date).substring(0, 10) + "T12:00:00"), day)
+              const isSelected = isSameDay(day, selectedDay);
+              const lunch = plannedMeals.find((pm) =>
+                isSameDay(new Date(String(pm.date).substring(0, 10) + "T12:00:00"), day) && pm.mealType === "LUNCH"
               );
+              const dinner = plannedMeals.find((pm) =>
+                isSameDay(new Date(String(pm.date).substring(0, 10) + "T12:00:00"), day) && pm.mealType === "DINNER"
+              );
+              if (!lunch && !dinner) return null;
               return (
                 <button
                   key={i}
                   onClick={() => setSelectedDay(day)}
-                  className="rounded-lg p-1.5 text-center text-[10px]"
-                  style={{ background: meal ? "var(--terracotta)" : "var(--muted)", color: meal ? "white" : "var(--muted-foreground)" }}
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all active:opacity-70"
+                  style={{
+                    background: isSelected ? "var(--terracotta)" : "var(--card)",
+                    border: `1px solid ${isSelected ? "var(--terracotta)" : "var(--border)"}`,
+                  }}
                 >
-                  <div>{DAY_LABELS[i]}</div>
-                  {meal && <div className="mt-0.5 truncate">{meal.meal.name.split(" ")[0]}</div>}
+                  <span
+                    className="text-xs font-bold w-7 shrink-0"
+                    style={{ color: isSelected ? "white" : "var(--muted-foreground)" }}
+                  >
+                    {DAY_LABELS[i]}
+                  </span>
+                  <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                    {lunch && (
+                      <span className="text-xs flex items-center gap-1 truncate" style={{ color: isSelected ? "white" : "var(--foreground)" }}>
+                        <span className="text-sm">{mealEmoji(lunch.meal)}</span>
+                        <span
+                          className="text-[9px] font-bold px-1 rounded shrink-0"
+                          style={{ background: isSelected ? "rgba(255,255,255,0.25)" : "var(--gold)", color: isSelected ? "white" : "white" }}
+                        >
+                          Déj
+                        </span>
+                        <span className="truncate">{lunch.meal.name}</span>
+                      </span>
+                    )}
+                    {dinner && (
+                      <span className="text-xs flex items-center gap-1 truncate" style={{ color: isSelected ? "rgba(255,255,255,0.85)" : "var(--muted-foreground)" }}>
+                        <span className="text-sm">{mealEmoji(dinner.meal)}</span>
+                        <span
+                          className="text-[9px] font-bold px-1 rounded shrink-0"
+                          style={{ background: isSelected ? "rgba(255,255,255,0.25)" : "var(--terracotta)", color: "white" }}
+                        >
+                          Dîn
+                        </span>
+                        <span className="truncate">{dinner.meal.name}</span>
+                      </span>
+                    )}
+                  </div>
                 </button>
               );
             })}

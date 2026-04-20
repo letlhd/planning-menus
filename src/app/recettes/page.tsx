@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Meal, FoodMode, Budget, Difficulty, MealType } from "@/types";
 import RecipeSheet from "@/components/meals/RecipeSheet";
+import { mealEmoji } from "@/components/meals/MealPickerSheet";
 
 const BUDGET_LABELS: Record<string, string> = { CHEAP: "€", NORMAL: "€€", SPLURGE: "€€€" };
 const DIFF_LABELS: Record<string, string> = { EASY: "Facile", MEDIUM: "Moyen", HARD: "Difficile" };
@@ -163,16 +164,20 @@ export default function RecettesPage() {
               className="w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all active:opacity-70"
               style={{ background: "var(--card)", border: "1px solid var(--border)" }}
             >
+              <span className="text-2xl shrink-0">{mealEmoji(meal)}</span>
               <div className="flex-1 min-w-0">
                 <span className="font-medium text-sm truncate block">{meal.name}</span>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  {/* Badge foodMode */}
-                  <span
-                    className="text-xs px-1.5 py-0.5 rounded-md font-medium"
-                    style={{ background: FOOD_MODE_COLORS[meal.foodMode] + "22", color: FOOD_MODE_COLORS[meal.foodMode] }}
-                  >
-                    {FOOD_MODE_LABELS[meal.foodMode] ?? meal.foodMode}
-                  </span>
+                  {/* Badges foodModes (multi) */}
+                  {(meal.foodModes?.length ? meal.foodModes : [meal.foodMode]).map((mode) => (
+                    <span
+                      key={mode}
+                      className="text-xs px-1.5 py-0.5 rounded-md font-medium"
+                      style={{ background: (FOOD_MODE_COLORS[mode] ?? "var(--muted)") + "33", color: FOOD_MODE_COLORS[mode] ?? "var(--muted-foreground)" }}
+                    >
+                      {FOOD_MODE_LABELS[mode] ?? mode}
+                    </span>
+                  ))}
                   {/* Badge type repas */}
                   <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: "var(--muted)", color: "var(--muted-foreground)" }}>
                     {mealTypeBadge(meal.mealTypes)}
@@ -223,7 +228,7 @@ export default function RecettesPage() {
 /* ──────────── Sheet d'ajout ──────────── */
 function AddMealSheet({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
   const [name, setName] = useState("");
-  const [foodMode, setFoodMode] = useState<FoodMode>("MEAT");
+  const [foodModes, setFoodModes] = useState<FoodMode[]>(["MEAT"]);
   const [mealTypes, setMealTypes] = useState<MealType[]>(["DINNER"]);
   const [season, setSeason] = useState("ALL_YEAR");
   const [budget, setBudget] = useState<Budget>("NORMAL");
@@ -233,6 +238,9 @@ function AddMealSheet({ onClose, onAdded }: { onClose: () => void; onAdded: () =
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  function toggleFoodMode(m: FoodMode) {
+    setFoodModes((prev) => prev.includes(m) ? (prev.length > 1 ? prev.filter((x) => x !== m) : prev) : [...prev, m]);
+  }
   function toggleMealType(t: MealType) {
     setMealTypes((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
   }
@@ -245,7 +253,7 @@ function AddMealSheet({ onClose, onAdded }: { onClose: () => void; onAdded: () =
       const res = await fetch("/api/meals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), foodMode, mealTypes, season: seasonArr, budget, difficulty, prepTime, cookTime }),
+        body: JSON.stringify({ name: name.trim(), foodMode: foodModes[0], foodModes, mealTypes, season: seasonArr, budget, difficulty, prepTime, cookTime }),
       });
       if (res.ok) onAdded();
       else setError("Erreur lors de l'ajout");
@@ -298,11 +306,12 @@ function AddMealSheet({ onClose, onAdded }: { onClose: () => void; onAdded: () =
           {/* Mode alimentaire */}
           <div>
             <p className="text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Mode alimentaire</p>
+            <p className="text-[10px] mb-1" style={{ color: "var(--muted-foreground)" }}>Multi-sélection possible</p>
             <div className="grid grid-cols-5 gap-1">
               {FOOD_MODE_OPTIONS.map(({ value, label }) => (
-                <button key={value} onClick={() => setFoodMode(value)}
+                <button key={value} onClick={() => toggleFoodMode(value)}
                   className="py-2 rounded-lg text-xs font-medium transition-all"
-                  style={{ background: foodMode === value ? "var(--terracotta)" : "var(--muted)", color: foodMode === value ? "white" : "var(--foreground)" }}>
+                  style={{ background: foodModes.includes(value) ? "var(--terracotta)" : "var(--muted)", color: foodModes.includes(value) ? "white" : "var(--foreground)" }}>
                   {label}
                 </button>
               ))}

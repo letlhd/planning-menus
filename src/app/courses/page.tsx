@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { format, startOfWeek } from "date-fns";
-import type { ShoppingList, ShoppingItem, Aisle } from "@/types";
+import { format, startOfWeek, addDays, isSameDay } from "date-fns";
+import { fr } from "date-fns/locale";
+import type { ShoppingList, ShoppingItem, Aisle, PlannedMeal } from "@/types";
+import { mealEmoji } from "@/components/meals/MealPickerSheet";
 
 const AISLE_CONFIG: Record<Aisle, { emoji: string; label: string }> = {
   PRODUCE: { emoji: "🥬", label: "Fruits & Légumes" },
@@ -20,20 +22,32 @@ export default function CoursesPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [newItem, setNewItem] = useState("");
+  const [plannedMeals, setPlannedMeals] = useState<PlannedMeal[]>([]);
+  const [selectedMealIds, setSelectedMealIds] = useState<Set<string>>(new Set());
+  const [showMealPicker, setShowMealPicker] = useState(false);
 
   const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
 
   useEffect(() => {
-    fetchList();
+    fetchAll();
   }, []);
 
-  async function fetchList() {
+  async function fetchAll() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/shopping?weekStart=${weekStart}`);
-      if (res.ok) setList(await res.json());
-    } catch {
-      // ignore
+      const [listRes, mealsRes] = await Promise.all([
+        fetch(`/api/shopping?weekStart=${weekStart}`),
+        fetch(`/api/planned-meals?weekStart=${weekStart}`),
+      ]);
+      if (listRes.ok) {
+        const data = await listRes.json();
+        setList(data);
+      }
+      if (mealsRes.ok) {
+        const meals: PlannedMeal[] = await mealsRes.json();
+        setPlannedMeals(meals);
+        setSelectedMealIds(new Set(meals.map((m) => m.id)));
+      }
     } finally {
       setLoading(false);
     }
@@ -45,13 +59,15 @@ export default function CoursesPage() {
       const res = await fetch("/api/shopping/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ weekStart }),
+        body: JSON.stringify({
+          weekStart,
+          mealIds: selectedMealIds.size > 0 ? Array.from(selectedMealIds) : undefined,
+        }),
       });
       if (res.ok) {
         setList(await res.json());
+        setShowMealPicker(false);
       }
-    } catch {
-      // ignore
     } finally {
       setGenerating(false);
     }
@@ -59,8 +75,7 @@ export default function CoursesPage() {
 
   async function toggleItem(itemId: string, isChecked: boolean) {
     if (!list) return;
-    const updated = { ...list, items: list.items.map((i) => i.id === itemId ? { ...i, isChecked } : i) };
-    setList(updated);
+    setList({ ...list, items: list.items.map((i) => i.id === itemId ? { ...i, isChecked } : i) });
     await fetch(`/api/shopping/items/${itemId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -83,6 +98,14 @@ export default function CoursesPage() {
     }
   }
 
+  function toggleMealSelection(id: string) {
+    setSelectedMealIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
   const checkedCount = list?.items.filter((i) => i.isChecked).length ?? 0;
   const totalCount = list?.items.length ?? 0;
 
@@ -90,40 +113,126 @@ export default function CoursesPage() {
     return <div className="px-4 pt-6"><div className="skeleton h-64 w-full rounded-2xl" /></div>;
   }
 
+  // Grouper les repas par jour pour affichage
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(new Date(weekStart), i));
+
   return (
     <div className="px-4 pt-6 pb-4">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-semibold">Courses</h1>
         {list && (
-          <span className="text-sm" style={{ color: "var(--muted-foreground)" }}>
-            {checkedCount}/{totalCount}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm" style={{ color: "var(--muted-foreground)" }}>
+              {checkedCount}/{totalCount}
+            </span>
+            <button
+              onClick={() => setShowMealPicker(true)}
+              className="text-xs px-2 py-1 rounded-lg"
+              style={{ background: "var(--muted)", color: "var(--muted-foreground)" }}
+            >
+              🔄 Refaire
+            </button>
+          </div>
         )}
       </div>
 
-      {!list ? (
-        <div className="rounded-2xl p-6 text-center" style={{ background: "var(--muted)" }}>
-          <p className="text-4xl mb-2">🛒</p>
-          <p className="font-medium mb-1">Aucune liste pour cette semaine</p>
-          <p className="text-sm mb-4" style={{ color: "var(--muted-foreground)" }}>
-            Génère une liste depuis les repas planifiés
-          </p>
-          <button
-            onClick={generateList}
-            disabled={generating}
-            className="px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity active:opacity-80 disabled:opacity-50"
-            style={{ background: "var(--terracotta)" }}
-          >
-            {generating ? "Génération..." : "Générer la liste 🛒"}
-          </button>
+      {/* Panel sélection de repas */}
+      {(!list || showMealPicker) && (
+        <div className="rounded-2xl overflow-hidden mb-4" style={{ border: "1px solid var(--border)" }}>
+          <div className="px-4 py-3" style={{ background: "var(--muted)" }}>
+            <p className="text-sm font-semibold">Repas à inclure dans la liste</p>
+            <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+              {selectedMealIds.size} repas sélectionné{selectedMealIds.size > 1 ? "s" : ""}
+            </p>
+          </div>
+
+          {plannedMeals.length === 0 ? (
+            <div className="px-4 py-6 text-center" style={{ background: "var(--card)" }}>
+              <p className="text-2xl mb-2">📅</p>
+              <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
+                Aucun repas planifié cette semaine
+              </p>
+            </div>
+          ) : (
+            <div style={{ background: "var(--card)" }}>
+              {weekDays.map((day) => {
+                const dayMeals = plannedMeals.filter((pm) =>
+                  isSameDay(new Date(String(pm.date).substring(0, 10) + "T12:00:00"), day)
+                ).sort((a, b) => a.mealType === "LUNCH" ? -1 : 1);
+                if (dayMeals.length === 0) return null;
+                const dayLabel = format(day, "EEE d MMM", { locale: fr });
+                return (
+                  <div key={day.toISOString()} style={{ borderTop: "1px solid var(--border)" }}>
+                    <p className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)", background: "var(--muted)" }}>
+                      {dayLabel}
+                    </p>
+                    {dayMeals.map((pm) => (
+                      <button
+                        key={pm.id}
+                        onClick={() => toggleMealSelection(pm.id)}
+                        className="flex items-center gap-3 w-full px-4 py-2.5 text-left transition-all active:opacity-70"
+                        style={{ borderTop: "1px solid var(--border)" }}
+                      >
+                        <span
+                          className="w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all"
+                          style={{
+                            borderColor: selectedMealIds.has(pm.id) ? "var(--terracotta)" : "var(--border)",
+                            background: selectedMealIds.has(pm.id) ? "var(--terracotta)" : "transparent",
+                          }}
+                        >
+                          {selectedMealIds.has(pm.id) && <span className="text-white text-[10px]">✓</span>}
+                        </span>
+                        <span className="text-lg shrink-0">{mealEmoji(pm.meal)}</span>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium truncate block">{pm.meal.name}</span>
+                          <span
+                            className="text-[10px] font-bold px-1 py-0.5 rounded"
+                            style={{
+                              background: pm.mealType === "LUNCH" ? "var(--gold)" : "var(--terracotta)",
+                              color: "white",
+                            }}
+                          >
+                            {pm.mealType === "LUNCH" ? "Déjeuner" : "Dîner"}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="px-4 py-3 flex gap-2" style={{ borderTop: "1px solid var(--border)", background: "var(--card)" }}>
+            {showMealPicker && (
+              <button
+                onClick={() => setShowMealPicker(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all active:scale-95"
+                style={{ background: "var(--muted)" }}
+              >
+                Annuler
+              </button>
+            )}
+            <button
+              onClick={generateList}
+              disabled={generating || selectedMealIds.size === 0}
+              className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white transition-all active:scale-95 disabled:opacity-50"
+              style={{ background: "var(--terracotta)" }}
+            >
+              {generating ? "Génération..." : `Générer la liste 🛒`}
+            </button>
+          </div>
         </div>
-      ) : (
+      )}
+
+      {/* Liste de courses */}
+      {list && !showMealPicker && (
         <>
           {/* Progression */}
           <div className="mb-4 rounded-xl p-3" style={{ background: "var(--muted)" }}>
             <div className="flex justify-between text-sm mb-1">
               <span>{checkedCount} articles cochés</span>
-              {list.totalCost && <span className="font-medium">~{list.totalCost.toFixed(0)}€</span>}
+              {list.totalCost ? <span className="font-medium">~{list.totalCost.toFixed(0)}€</span> : null}
             </div>
             <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
               <div
@@ -176,27 +285,52 @@ export default function CoursesPage() {
   );
 }
 
-function ShoppingItemRow({ item, onToggle }: { item: ShoppingItem; onToggle: (id: string, checked: boolean) => void }) {
+function ShoppingItemRow({
+  item,
+  onToggle,
+}: {
+  item: ShoppingItem;
+  onToggle: (id: string, checked: boolean) => void;
+}) {
   return (
     <button
       onClick={() => onToggle(item.id, !item.isChecked)}
-      className="flex items-center gap-3 w-full p-3 rounded-xl text-left transition-all active:opacity-70"
+      className="flex items-start gap-3 w-full p-3 rounded-xl text-left transition-all active:opacity-70"
       style={{ background: "var(--card)", border: "1px solid var(--border)", opacity: item.isChecked ? 0.5 : 1 }}
     >
       <span
-        className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0"
-        style={{ borderColor: item.isChecked ? "var(--sage)" : "var(--border)", background: item.isChecked ? "var(--sage)" : "transparent" }}
+        className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5"
+        style={{
+          borderColor: item.isChecked ? "var(--sage)" : "var(--border)",
+          background: item.isChecked ? "var(--sage)" : "transparent",
+        }}
       >
         {item.isChecked && <span className="text-white text-xs">✓</span>}
       </span>
-      <span className={`flex-1 text-sm ${item.isChecked ? "line-through" : ""}`}>
-        {item.name}
-      </span>
-      {item.quantity > 0 && (
-        <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-          {item.quantity} {item.unit}
-        </span>
-      )}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <span className={`text-sm ${item.isChecked ? "line-through" : ""}`}>{item.name}</span>
+          {item.quantity > 0 && (
+            <span className="text-xs shrink-0" style={{ color: "var(--muted-foreground)" }}>
+              {item.quantity} {item.unit}
+            </span>
+          )}
+        </div>
+        {/* Repas sources */}
+        {item.sourceMeals && item.sourceMeals.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {item.sourceMeals.map((name) => (
+              <span
+                key={name}
+                className="text-[10px] px-1.5 py-0.5 rounded-md"
+                style={{ background: "var(--muted)", color: "var(--muted-foreground)" }}
+              >
+                {name}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
     </button>
   );
 }

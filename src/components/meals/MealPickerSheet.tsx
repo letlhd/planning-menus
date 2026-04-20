@@ -29,10 +29,14 @@ const SEASON_OPTIONS: { value: string; label: string; season: string[] }[] = [
 ];
 
 export function mealEmoji(meal: Meal): string {
-  if (meal.foodMode === "FISH") return "🐟";
-  if (meal.foodMode === "VEGETARIAN") return "🥗";
-  if (meal.foodMode === "FESTIVE") return "🎉";
-  if (meal.foodMode === "RECEPTION") return "🥂";
+  // Priorité aux foodModes multi (premier mode non-MEAT)
+  const modes = meal.foodModes?.length ? meal.foodModes : [meal.foodMode];
+  const special = modes.find((m) => m !== "MEAT");
+  const primary = special ?? modes[0] ?? meal.foodMode;
+  if (primary === "FISH") return "🐟";
+  if (primary === "VEGETARIAN") return "🥗";
+  if (primary === "FESTIVE") return "🎉";
+  if (primary === "RECEPTION") return "🥂";
   const cat: Record<string, string> = {
     PASTA: "🍝", RICE_GRAINS: "🍚", SALAD: "🥗", SOUP: "🍲", MEAT: "🥩",
     FISH: "🐟", VEGETARIAN: "🥦", VEGAN: "🌱", PIZZA_TART: "🍕",
@@ -185,7 +189,7 @@ function QuickAddForm({
   onCancel: () => void;
 }) {
   const [name, setName] = useState(defaultName);
-  const [foodMode, setFoodMode] = useState<FoodMode>("MEAT");
+  const [foodModes, setFoodModes] = useState<FoodMode[]>(["MEAT"]);
   const [mealTypes, setMealTypes] = useState<MealType[]>(["DINNER"]);
   const [budget, setBudget] = useState<Budget>("NORMAL");
   const [difficulty, setDifficulty] = useState<Difficulty>("EASY");
@@ -195,10 +199,11 @@ function QuickAddForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  function toggleFoodMode(m: FoodMode) {
+    setFoodModes((prev) => prev.includes(m) ? (prev.length > 1 ? prev.filter((x) => x !== m) : prev) : [...prev, m]);
+  }
   function toggleMealType(t: MealType) {
-    setMealTypes((prev) =>
-      prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]
-    );
+    setMealTypes((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
   }
 
   async function submit() {
@@ -209,7 +214,7 @@ function QuickAddForm({
       const res = await fetch("/api/meals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), foodMode, mealTypes, budget, difficulty, prepTime, cookTime, season: seasonArr }),
+        body: JSON.stringify({ name: name.trim(), foodMode: foodModes[0], foodModes, mealTypes, budget, difficulty, prepTime, cookTime, season: seasonArr }),
       });
       if (res.ok) {
         const meal: Meal = await res.json();
@@ -248,15 +253,18 @@ function QuickAddForm({
         ))}
       </div>
 
-      {/* Mode alimentaire */}
-      <div className="grid grid-cols-5 gap-1">
-        {FOOD_MODE_OPTIONS.map(({ value, label }) => (
-          <button key={value} onClick={() => setFoodMode(value)}
-            className="py-1.5 rounded-lg text-xs font-medium transition-all text-center"
-            style={{ background: foodMode === value ? "var(--terracotta)" : "var(--muted)", color: foodMode === value ? "white" : "var(--foreground)" }}>
-            {label.split(" ")[0]}
-          </button>
-        ))}
+      {/* Mode alimentaire (multi) */}
+      <div>
+        <p className="text-[10px] mb-1" style={{ color: "var(--muted-foreground)" }}>Mode alimentaire (multi possible)</p>
+        <div className="grid grid-cols-5 gap-1">
+          {FOOD_MODE_OPTIONS.map(({ value, label }) => (
+            <button key={value} onClick={() => toggleFoodMode(value)}
+              className="py-1.5 rounded-lg text-xs font-medium transition-all text-center"
+              style={{ background: foodModes.includes(value) ? "var(--terracotta)" : "var(--muted)", color: foodModes.includes(value) ? "white" : "var(--foreground)" }}>
+              {label.split(" ")[0]}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Saison + Budget + Difficulté */}

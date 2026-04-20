@@ -263,7 +263,7 @@ function EditMealPanel({
   onCancel: () => void;
   onSaved: (updated: Meal) => void;
 }) {
-  const [foodMode, setFoodMode] = useState<FoodMode>(meal.foodMode ?? "MEAT");
+  const [foodModes, setFoodModes] = useState<FoodMode[]>(meal.foodModes?.length ? meal.foodModes : [meal.foodMode ?? "MEAT"]);
   const [mealTypes, setMealTypes] = useState<MealType[]>(meal.mealTypes ?? ["DINNER"]);
   const [budget, setBudget] = useState<Budget>(meal.budget);
   const [difficulty, setDifficulty] = useState<Difficulty>(meal.difficulty);
@@ -272,6 +272,9 @@ function EditMealPanel({
   const [cookTime, setCookTime] = useState(meal.cookTime);
   const [saving, setSaving] = useState(false);
 
+  function toggleFoodMode(m: FoodMode) {
+    setFoodModes((prev) => prev.includes(m) ? (prev.length > 1 ? prev.filter((x) => x !== m) : prev) : [...prev, m]);
+  }
   function toggleMealType(t: MealType) {
     setMealTypes((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
   }
@@ -283,7 +286,7 @@ function EditMealPanel({
       const res = await fetch(`/api/meals/${meal.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ foodMode, mealTypes, budget, difficulty, season: seasonArr, prepTime, cookTime }),
+        body: JSON.stringify({ foodMode: foodModes[0], foodModes, mealTypes, budget, difficulty, season: seasonArr, prepTime, cookTime }),
       });
       if (res.ok) {
         const updated: Meal = await res.json();
@@ -311,12 +314,13 @@ function EditMealPanel({
 
       <div>
         <p className="text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Mode alimentaire</p>
+        <p className="text-[10px] mb-1" style={{ color: "var(--muted-foreground)" }}>Multi-sélection possible</p>
         <div className="grid grid-cols-5 gap-1">
           {FOOD_MODE_OPTIONS.map(({ value, label }) => (
-            <button key={value} onClick={() => setFoodMode(value)}
-              className="py-2 rounded-lg text-xs font-medium transition-all"
-              style={{ background: foodMode === value ? "var(--terracotta)" : "var(--muted)", color: foodMode === value ? "white" : "var(--foreground)" }}>
-              {label}
+            <button key={value} onClick={() => toggleFoodMode(value)}
+              className="py-2 rounded-lg text-xs font-medium transition-all text-center"
+              style={{ background: foodModes.includes(value) ? "var(--terracotta)" : "var(--muted)", color: foodModes.includes(value) ? "white" : "var(--foreground)" }}>
+              {label.split(" ")[0]}
             </button>
           ))}
         </div>

@@ -42,6 +42,7 @@ export interface Meal {
   budget: Budget;
   servings: number;
   foodMode: FoodMode;
+  foodModes: FoodMode[];
   mealTypes: MealType[];
   isVegetarian: boolean;
   isVegan: boolean;
@@ -102,6 +103,7 @@ export interface ShoppingItem {
   isChecked: boolean;
   isManual: boolean;
   estimatedCost?: number;
+  sourceMeals: string[];
 }
 
 export interface ShoppingList {

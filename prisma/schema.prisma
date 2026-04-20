@@ -17,6 +17,7 @@ model Meal {
   budget        Budget
   servings      Int       @default(4)
   foodMode      FoodMode   @default(MEAT)
+  foodModes     FoodMode[] @default([])
   mealTypes     MealType[] @default([DINNER])
   isVegetarian  Boolean    @default(false)
   isVegan       Boolean   @default(false)
@@ -97,6 +98,7 @@ model ShoppingItem {
   isChecked     Boolean      @default(false)
   isManual      Boolean      @default(false)
   estimatedCost Float?
+  sourceMeals   String[]     @default([])
   createdAt     DateTime     @default(now())
 }
 

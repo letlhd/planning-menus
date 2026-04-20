@@ -12,6 +12,7 @@ const MealSchema = z.object({
   budget: z.enum(["CHEAP", "NORMAL", "SPLURGE"]).default("NORMAL"),
   servings: z.number().int().default(4),
   foodMode: z.enum(["VEGETARIAN", "MEAT", "FISH", "FESTIVE", "RECEPTION"]).default("MEAT"),
+  foodModes: z.array(z.enum(["VEGETARIAN", "MEAT", "FISH", "FESTIVE", "RECEPTION"])).default([]),
   mealTypes: z.array(z.enum(["LUNCH", "DINNER"])).default(["DINNER"]),
   isVegetarian: z.boolean().default(false),
   isVegan: z.boolean().default(false),

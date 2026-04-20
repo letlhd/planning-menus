@@ -22,29 +22,9 @@ export default function MealCard({
   allowChange?: boolean;
 }) {
   const [showRecipe, setShowRecipe] = useState(false);
-  const [rating, setRating] = useState(pm.rating ?? 0);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [currentMeal, setCurrentMeal] = useState<Meal>(pm.meal);
-
-  async function markCooked() {
-    await fetch(`/api/planned-meals/${pm.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "COOKED" }),
-    });
-    onUpdate();
-  }
-
-  async function submitRating(r: number) {
-    setRating(r);
-    await fetch(`/api/planned-meals/${pm.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rating: r, status: "COOKED" }),
-    });
-    onUpdate();
-  }
 
   async function cancelMeal() {
     await fetch(`/api/planned-meals/${pm.id}`, { method: "DELETE" });
@@ -115,15 +95,6 @@ export default function MealCard({
               ✏️ Changer
             </button>
           )}
-          {pm.status !== "COOKED" && (
-            <button
-              onClick={markCooked}
-              className="flex-1 py-2 rounded-xl text-sm font-medium text-white transition-all active:scale-95"
-              style={{ background: "var(--terracotta)" }}
-            >
-              ✓ Cuisiné
-            </button>
-          )}
           <button
             onClick={() => setConfirmDelete(true)}
             className="w-9 h-9 rounded-xl flex items-center justify-center transition-all active:scale-95 shrink-0"
@@ -157,21 +128,6 @@ export default function MealCard({
           </div>
         )}
 
-        {/* Rating si cuisiné */}
-        {pm.status === "COOKED" && (
-          <div className="flex items-center gap-1 mt-3 justify-center">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <button
-                key={star}
-                onClick={() => submitRating(star)}
-                className="text-xl transition-transform active:scale-110"
-                style={{ filter: star <= rating ? "none" : "grayscale(1) opacity(0.3)" }}
-              >
-                ⭐
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {showRecipe && <RecipeSheet meal={currentMeal} onClose={() => setShowRecipe(false)} />}

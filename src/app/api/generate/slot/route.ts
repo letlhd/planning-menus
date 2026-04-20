@@ -6,7 +6,7 @@ import { generateMealSuggestions } from "@/lib/claude";
 const SlotSchema = z.object({
   adults: z.number().int().min(1),
   children: z.number().int().min(0).default(0),
-  foodMode: z.enum(["VEGETARIAN", "MEAT", "FISH", "FESTIVE"]).default("MEAT"),
+  foodMode: z.enum(["VEGETARIAN", "MEAT", "FISH", "FESTIVE", "RECEPTION"]).default("MEAT"),
   seasonPref: z.enum(["SUMMER", "WINTER", "ALL_YEAR"]).default("ALL_YEAR"),
   budget: z.enum(["CHEAP", "NORMAL", "SPLURGE"]).default("NORMAL"),
   mealType: z.enum(["LUNCH", "DINNER"]).default("DINNER"),
@@ -31,14 +31,16 @@ export async function POST(req: NextRequest) {
   });
   const excludeNames = [...new Set([...recentMeals.map((pm) => pm.meal.name), ...params.exclude])];
 
-  // Filtre foodMode — on garde aussi la compat avec les anciens champs booléens
+  // Filtre foodMode — cherche dans foodModes[] ET foodMode (compat)
   const foodModeFilter =
     params.foodMode === "VEGETARIAN"
-      ? { OR: [{ foodMode: "VEGETARIAN" as const }, { isVegetarian: true }, { isVegan: true }] }
+      ? { OR: [{ foodModes: { has: "VEGETARIAN" as const } }, { foodMode: "VEGETARIAN" as const }, { isVegetarian: true }, { isVegan: true }] }
       : params.foodMode === "FISH"
-      ? { OR: [{ foodMode: "FISH" as const }, { isFish: true }] }
+      ? { OR: [{ foodModes: { has: "FISH" as const } }, { foodMode: "FISH" as const }, { isFish: true }] }
       : params.foodMode === "FESTIVE"
-      ? { tags: { hasSome: ["festif", "fête", "fun", "convivial", "festive"] } }
+      ? { OR: [{ foodModes: { has: "FESTIVE" as const } }, { foodMode: "FESTIVE" as const }, { tags: { hasSome: ["festif", "fête", "fun", "convivial", "festive"] } }] }
+      : params.foodMode === "RECEPTION"
+      ? { OR: [{ foodModes: { has: "RECEPTION" as const } }, { foodMode: "RECEPTION" as const }] }
       : {}; // MEAT : pas de filtre spécifique
 
   // Filtre saison — auto si non précisé

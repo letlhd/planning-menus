@@ -33,17 +33,24 @@ function guessAisle(ingredientName: string): string {
   return "GROCERY";
 }
 
-const Schema = z.object({ weekStart: z.string() });
+const Schema = z.object({
+  weekStart: z.string(),
+  mealIds: z.array(z.string()).optional(), // IDs des PlannedMeal sélectionnés
+});
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { weekStart } = Schema.parse(body);
+  const { weekStart, mealIds } = Schema.parse(body);
 
   const start = new Date(weekStart);
   const end = addDays(start, 7);
 
+  const whereClause = mealIds && mealIds.length > 0
+    ? { id: { in: mealIds } }
+    : { date: { gte: start, lt: end } };
+
   const plannedMeals = await prisma.plannedMeal.findMany({
-    where: { date: { gte: start, lt: end } },
+    where: whereClause,
     include: { meal: true },
   });
 
@@ -52,7 +59,12 @@ export async function POST(req: NextRequest) {
   }
 
   // Agrégation des ingrédients
-  const aggregated = new Map<string, { quantity: number; unit: string; aisle: string; mealIds: string[] }>();
+  const aggregated = new Map<string, {
+    quantity: number;
+    unit: string;
+    aisle: string;
+    sourceMeals: Set<string>;
+  }>();
 
   for (const pm of plannedMeals) {
     const scale = pm.servings / pm.meal.servings;
@@ -63,13 +75,13 @@ export async function POST(req: NextRequest) {
       const existing = aggregated.get(key);
       if (existing) {
         existing.quantity += ing.quantity * scale;
-        existing.mealIds.push(pm.id);
+        existing.sourceMeals.add(pm.meal.name);
       } else {
         aggregated.set(key, {
           quantity: ing.quantity * scale,
           unit: ing.unit,
           aisle: guessAisle(ing.name),
-          mealIds: [pm.id],
+          sourceMeals: new Set([pm.meal.name]),
         });
       }
     }
@@ -87,14 +99,15 @@ export async function POST(req: NextRequest) {
   // Supprimer les anciens items générés
   await prisma.shoppingItem.deleteMany({ where: { listId: list.id, isManual: false } });
 
-  // Créer les nouveaux items
-  const items = await prisma.shoppingItem.createMany({
+  // Créer les nouveaux items avec sourceMeals
+  await prisma.shoppingItem.createMany({
     data: Array.from(aggregated.entries()).map(([key, value]) => ({
       listId: list.id,
       name: key.split("__")[0],
       quantity: Math.round(value.quantity * 100) / 100,
       unit: value.unit,
       aisle: value.aisle as never,
+      sourceMeals: Array.from(value.sourceMeals),
     })),
   });
 
