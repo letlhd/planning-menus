@@ -1,0 +1,37 @@
+{
+  "name": "Planning Menus",
+  "short_name": "Menus",
+  "description": "Planifiez vos repas de la semaine intelligemment",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFF8F0",
+  "theme_color": "#C4622D",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "categories": ["food", "lifestyle"],
+  "shortcuts": [
+    {
+      "name": "Aujourd'hui",
+      "url": "/",
+      "description": "Voir le repas du soir"
+    },
+    {
+      "name": "Courses",
+      "url": "/courses",
+      "description": "Ma liste de courses"
+    }
+  ]
+}

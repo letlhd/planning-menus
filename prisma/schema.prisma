@@ -1,0 +1,208 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Meal {
+  id            String    @id @default(cuid())
+  name          String
+  category      Category
+  tags          String[]
+  prepTime      Int
+  cookTime      Int
+  difficulty    Difficulty
+  budget        Budget
+  servings      Int       @default(4)
+  isVegetarian  Boolean   @default(false)
+  isVegan       Boolean   @default(false)
+  isFish        Boolean   @default(false)
+  canPrepAhead  Boolean   @default(false)
+  season        Season[]
+  ingredients   Json
+  estimatedCost Float?
+  usageScore    Float     @default(0)
+  lastUsedAt    DateTime?
+  rating        Float?
+  ratingCount   Int       @default(0)
+  sourceBlog    String?
+  sourceUrl     String?
+  isCustom      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  plannedMeals PlannedMeal[]
+  recipe       Recipe?
+}
+
+model Recipe {
+  id                String   @id @default(cuid())
+  mealId            String   @unique
+  meal              Meal     @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  intro             String
+  steps             Json
+  tips              String[]
+  variations        String[]
+  nutritionEstimate Json?
+  generatedByAI     Boolean  @default(false)
+  tokenCost         Int?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model PlannedMeal {
+  id        String     @id @default(cuid())
+  mealId    String
+  meal      Meal       @relation(fields: [mealId], references: [id])
+  date      DateTime   @db.Date
+  mealType  MealType
+  servings  Int        @default(4)
+  status    PlanStatus @default(PLANNED)
+  rating    Int?
+  notes     String?
+  weekId    String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  shoppingItems ShoppingItem[]
+
+  @@unique([date, mealType])
+}
+
+model ShoppingList {
+  id        String     @id @default(cuid())
+  weekStart DateTime   @db.Date
+  status    ListStatus @default(ACTIVE)
+  totalCost Float?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  items ShoppingItem[]
+}
+
+model ShoppingItem {
+  id            String       @id @default(cuid())
+  listId        String
+  list          ShoppingList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  plannedMealId String?
+  plannedMeal   PlannedMeal? @relation(fields: [plannedMealId], references: [id])
+  name          String
+  quantity      Float
+  unit          String
+  aisle         Aisle
+  isChecked     Boolean      @default(false)
+  isManual      Boolean      @default(false)
+  estimatedCost Float?
+  createdAt     DateTime     @default(now())
+}
+
+model RecipeCache {
+  id         String   @id @default(cuid())
+  name       String   @unique
+  data       Json
+  source     String   @default("claude")
+  sourceBlog String?
+  sourceUrl  String?
+  isPromoted Boolean  @default(false)
+  tokenCost  Int?
+  createdAt  DateTime @default(now())
+}
+
+model BlogSource {
+  id            String    @id @default(cuid())
+  name          String
+  url           String    @unique
+  isActive      Boolean   @default(true)
+  lastScrapedAt DateTime?
+  scrapeCount   Int       @default(0)
+  errorCount    Int       @default(0)
+  createdAt     DateTime  @default(now())
+}
+
+model Settings {
+  id                 String   @id @default("singleton")
+  adultsCount        Int      @default(2)
+  childrenCount      Int      @default(0)
+  defaultDays        Int[]    @default([1, 2, 3, 4, 5, 6, 0])
+  defaultMealType    MealType @default(DINNER)
+  defaultBudget      Budget   @default(NORMAL)
+  defaultAmbiance    Ambiance @default(BALANCED)
+  vegetarianOverride Boolean  @default(false)
+  maxPrepTime        Int?
+  dbRatio            Float    @default(0.7)
+  weeklyBudgetGoal   Float?
+  updatedAt          DateTime @updatedAt
+}
+
+enum Category {
+  PASTA
+  RICE_GRAINS
+  SALAD
+  SOUP
+  MEAT
+  FISH
+  VEGETARIAN
+  VEGAN
+  PIZZA_TART
+  STEW
+  STIR_FRY
+  SANDWICH
+  OTHER
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum Budget {
+  CHEAP
+  NORMAL
+  SPLURGE
+}
+
+enum Season {
+  SPRING
+  SUMMER
+  AUTUMN
+  WINTER
+  ALL_YEAR
+}
+
+enum MealType {
+  LUNCH
+  DINNER
+}
+
+enum PlanStatus {
+  PLANNED
+  VALIDATED
+  COOKED
+  SKIPPED
+}
+
+enum ListStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum Aisle {
+  PRODUCE
+  MEAT_FISH
+  DAIRY
+  GROCERY
+  FROZEN
+  OTHER
+}
+
+enum Ambiance {
+  LIGHT
+  FUN
+  BALANCED
+}
