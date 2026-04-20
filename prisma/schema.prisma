@@ -16,8 +16,9 @@ model Meal {
   difficulty    Difficulty
   budget        Budget
   servings      Int       @default(4)
-  foodMode      FoodMode  @default(MEAT)
-  isVegetarian  Boolean   @default(false)
+  foodMode      FoodMode   @default(MEAT)
+  mealTypes     MealType[] @default([DINNER])
+  isVegetarian  Boolean    @default(false)
   isVegan       Boolean   @default(false)
   isFish        Boolean   @default(false)
   canPrepAhead  Boolean   @default(false)
@@ -129,8 +130,9 @@ model Settings {
   defaultDays     Int[]    @default([1, 2, 3, 4, 5, 6, 0])
   defaultMealType MealType @default(DINNER)
   defaultBudget   Budget   @default(NORMAL)
-  defaultFoodMode FoodMode @default(MEAT)
-  festiveDays     Int[]    @default([5, 6, 0])
+  defaultFoodMode       FoodMode @default(MEAT)
+  defaultDinnerFoodMode FoodMode @default(VEGETARIAN)
+  festiveDays           Int[]    @default([5, 6, 0])
   noLunchDays     Int[]    @default([1, 2, 4, 5])
   maxPrepTime     Int?
   dbRatio         Float    @default(0.7)
@@ -206,4 +208,5 @@ enum FoodMode {
   MEAT
   FISH
   FESTIVE
+  RECEPTION
 }

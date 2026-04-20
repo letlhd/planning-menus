@@ -36,6 +36,7 @@ const FOOD_MODE_OPTIONS: { value: FoodMode; label: string }[] = [
   { value: "FISH", label: "🐟 Poisson" },
   { value: "VEGETARIAN", label: "🥗 Végé" },
   { value: "FESTIVE", label: "🎉 Festif" },
+  { value: "RECEPTION", label: "🥂 Récep." },
 ];
 
 const SEASON_OPTIONS: { value: SeasonPref; label: string }[] = [
@@ -90,7 +91,7 @@ export default function GenerateModal({ onClose, onGenerated }: GenerateModalPro
           date: dateStr,
           mealType: "DINNER",
           dayLabel: `${DAY_FR[dayOfWeek]} ${format(day, "d MMM", { locale: fr })}`,
-          foodMode: isFestiveDay ? "FESTIVE" : s.defaultFoodMode ?? "MEAT",
+          foodMode: isFestiveDay ? "FESTIVE" : s.defaultDinnerFoodMode ?? "VEGETARIAN",
           seasonPref: season,
           budget: s.defaultBudget ?? "NORMAL",
           adults: s.adultsCount ?? 2,
@@ -301,7 +302,7 @@ function SlotRow({
           {/* Mode alimentaire */}
           <div>
             <p className="text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Mode alimentaire</p>
-            <div className="grid grid-cols-4 gap-1">
+            <div className="grid grid-cols-5 gap-1">
               {FOOD_MODE_OPTIONS.map(({ value, label }) => (
                 <button
                   key={value}

@@ -83,7 +83,7 @@ export default function WeekPage() {
         ) : selectedDayMeals.length > 0 ? (
           <div className="space-y-3">
             {selectedDayMeals.map((pm) => (
-              <MealCard key={pm.id} plannedMeal={pm} onUpdate={fetchMeals} />
+              <MealCard key={pm.id} plannedMeal={pm} onUpdate={fetchMeals} allowChange />
             ))}
           </div>
         ) : (

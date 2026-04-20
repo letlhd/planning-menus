@@ -2,13 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { Meal, Recipe, FoodMode, Budget, Difficulty } from "@/types";
+import type { Meal, Recipe, FoodMode, Budget, Difficulty, MealType } from "@/types";
 
 const FOOD_MODE_OPTIONS: { value: FoodMode; label: string }[] = [
   { value: "MEAT", label: "🥩 Viande" },
   { value: "FISH", label: "🐟 Poisson" },
   { value: "VEGETARIAN", label: "🥗 Végétarien" },
   { value: "FESTIVE", label: "🎉 Festif" },
+  { value: "RECEPTION", label: "🥂 Réception" },
+];
+
+const MEAL_TYPE_OPTIONS: { value: MealType; label: string }[] = [
+  { value: "LUNCH", label: "🥣 Déjeuner" },
+  { value: "DINNER", label: "🍽️ Dîner" },
 ];
 const BUDGET_OPTIONS: { value: Budget; label: string }[] = [
   { value: "CHEAP", label: "€ Serré" },
@@ -258,12 +264,17 @@ function EditMealPanel({
   onSaved: (updated: Meal) => void;
 }) {
   const [foodMode, setFoodMode] = useState<FoodMode>(meal.foodMode ?? "MEAT");
+  const [mealTypes, setMealTypes] = useState<MealType[]>(meal.mealTypes ?? ["DINNER"]);
   const [budget, setBudget] = useState<Budget>(meal.budget);
   const [difficulty, setDifficulty] = useState<Difficulty>(meal.difficulty);
   const [seasonKey, setSeasonKey] = useState(mealSeasonKey(meal.season));
   const [prepTime, setPrepTime] = useState(meal.prepTime);
   const [cookTime, setCookTime] = useState(meal.cookTime);
   const [saving, setSaving] = useState(false);
+
+  function toggleMealType(t: MealType) {
+    setMealTypes((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
+  }
 
   async function save() {
     setSaving(true);
@@ -272,7 +283,7 @@ function EditMealPanel({
       const res = await fetch(`/api/meals/${meal.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ foodMode, budget, difficulty, season: seasonArr, prepTime, cookTime }),
+        body: JSON.stringify({ foodMode, mealTypes, budget, difficulty, season: seasonArr, prepTime, cookTime }),
       });
       if (res.ok) {
         const updated: Meal = await res.json();
@@ -286,8 +297,21 @@ function EditMealPanel({
   return (
     <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
       <div>
+        <p className="text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Type de repas</p>
+        <div className="flex gap-2">
+          {MEAL_TYPE_OPTIONS.map(({ value, label }) => (
+            <button key={value} onClick={() => toggleMealType(value)}
+              className="flex-1 py-2 rounded-lg text-xs font-medium transition-all"
+              style={{ background: mealTypes.includes(value) ? "var(--terracotta)" : "var(--muted)", color: mealTypes.includes(value) ? "white" : "var(--foreground)" }}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
         <p className="text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Mode alimentaire</p>
-        <div className="grid grid-cols-4 gap-1">
+        <div className="grid grid-cols-5 gap-1">
           {FOOD_MODE_OPTIONS.map(({ value, label }) => (
             <button key={value} onClick={() => setFoodMode(value)}
               className="py-2 rounded-lg text-xs font-medium transition-all"

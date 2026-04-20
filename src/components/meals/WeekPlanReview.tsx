@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import type { GeneratedResult } from "./GenerateModal";
 import type { Meal } from "@/types";
+import MealPickerSheet, { mealEmoji } from "./MealPickerSheet";
 
 const SWAP_REASONS = ["Plus fun 🍕", "Plus léger 🥗", "Moins cher 💰", "Plus élaboré ⭐", "Végétarien 🥦", "Autre chose 🔀"];
 const BUDGET_LABELS: Record<string, string> = { CHEAP: "€", NORMAL: "€€", SPLURGE: "€€€" };
@@ -36,6 +37,7 @@ export default function WeekPlanReview({ results, onDone, onClose }: WeekPlanRev
   );
   const [saving, setSaving] = useState(false);
   const [activeSwap, setActiveSwap] = useState<string | null>(null);
+  const [pickerForSlot, setPickerForSlot] = useState<string | null>(null);
 
   const validatedCount = slots.filter((s) => s.validated).length;
 
@@ -176,10 +178,11 @@ export default function WeekPlanReview({ results, onDone, onClose }: WeekPlanRev
                   </div>
                 ) : (
                   <>
-                    <h3 className="font-semibold text-base mb-1">{slot.meal.name}</h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-2xl">{mealEmoji(slot.meal)}</span>
+                      <h3 className="font-semibold text-base">{slot.meal.name}</h3>
+                    </div>
                     <div className="flex flex-wrap gap-2 mb-3">
-                      {slot.meal.isVegetarian && <Tag>🥗 Végé</Tag>}
-                      {slot.meal.isFish && <Tag>🐟 Poisson</Tag>}
                       {slot.meal.canPrepAhead && <Tag>⏰ Prép. avance</Tag>}
                       <Tag>⏱ {(slot.meal.prepTime ?? 0) + (slot.meal.cookTime ?? 0)} min</Tag>
                       {slot.meal.budget && <Tag>{BUDGET_LABELS[slot.meal.budget] ?? slot.meal.budget}</Tag>}
@@ -223,6 +226,13 @@ export default function WeekPlanReview({ results, onDone, onClose }: WeekPlanRev
                               {reason}
                             </button>
                           ))}
+                          <button
+                            onClick={() => { setActiveSwap(null); setPickerForSlot(key); }}
+                            className="px-3 py-1.5 rounded-xl text-xs font-medium transition-all active:scale-95"
+                            style={{ background: "var(--muted)", color: "var(--foreground)", border: "1px solid var(--terracotta)" }}
+                          >
+                            ✍️ Choisir manuellement
+                          </button>
                         </div>
                         <button
                           onClick={() => setActiveSwap(null)}
@@ -252,6 +262,20 @@ export default function WeekPlanReview({ results, onDone, onClose }: WeekPlanRev
           {saving ? "Enregistrement..." : `Enregistrer ${validatedCount} repas ✓`}
         </button>
       </div>
+
+      {/* Picker manuel */}
+      {pickerForSlot && (
+        <MealPickerSheet
+          title="Choisir un repas"
+          onSelect={(meal) => {
+            setSlots((prev) =>
+              prev.map((s) => slotKey(s) === pickerForSlot ? { ...s, meal, swapping: false } : s)
+            );
+            setPickerForSlot(null);
+          }}
+          onClose={() => setPickerForSlot(null)}
+        />
+      )}
     </div>
   );
 }

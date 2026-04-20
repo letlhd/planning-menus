@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import type { PlannedMeal } from "@/types";
+import type { PlannedMeal, Meal } from "@/types";
 import RecipeSheet from "./RecipeSheet";
+import MealPickerSheet, { mealEmoji } from "./MealPickerSheet";
 
 const STATUS_CONFIG = {
   PLANNED: { emoji: "📋", label: "Planifié" },
@@ -11,10 +12,20 @@ const STATUS_CONFIG = {
   SKIPPED: { emoji: "⏭️", label: "Passé" },
 };
 
-export default function MealCard({ plannedMeal: pm, onUpdate }: { plannedMeal: PlannedMeal; onUpdate: () => void }) {
+export default function MealCard({
+  plannedMeal: pm,
+  onUpdate,
+  allowChange = false,
+}: {
+  plannedMeal: PlannedMeal;
+  onUpdate: () => void;
+  allowChange?: boolean;
+}) {
   const [showRecipe, setShowRecipe] = useState(false);
   const [rating, setRating] = useState(pm.rating ?? 0);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
+  const [currentMeal, setCurrentMeal] = useState<Meal>(pm.meal);
 
   async function markCooked() {
     await fetch(`/api/planned-meals/${pm.id}`, {
@@ -40,7 +51,18 @@ export default function MealCard({ plannedMeal: pm, onUpdate }: { plannedMeal: P
     onUpdate();
   }
 
-  const totalTime = pm.meal.prepTime + pm.meal.cookTime;
+  async function handleMealSelected(meal: Meal) {
+    setShowPicker(false);
+    await fetch(`/api/planned-meals/${pm.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mealId: meal.id }),
+    });
+    setCurrentMeal(meal);
+    onUpdate();
+  }
+
+  const totalTime = currentMeal.prepTime + currentMeal.cookTime;
 
   return (
     <>
@@ -49,16 +71,17 @@ export default function MealCard({ plannedMeal: pm, onUpdate }: { plannedMeal: P
         style={{ background: "var(--card)", border: "1px solid var(--border)" }}
       >
         <div className="flex items-start gap-3">
+          {/* Grande icône du repas */}
+          <span className="text-3xl shrink-0 leading-none mt-0.5">{mealEmoji(currentMeal)}</span>
+
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-semibold text-base truncate">{pm.meal.name}</h3>
-              {pm.meal.isVegetarian && <span className="text-sm">🥗</span>}
-              {pm.meal.isFish && <span className="text-sm">🐟</span>}
+              <h3 className="font-semibold text-base truncate">{currentMeal.name}</h3>
             </div>
             <div className="flex items-center gap-3 text-xs" style={{ color: "var(--muted-foreground)" }}>
               <span>⏱ {totalTime} min</span>
-              <span>{pm.meal.difficulty === "EASY" ? "Facile" : pm.meal.difficulty === "MEDIUM" ? "Moyen" : "Difficile"}</span>
-              {pm.meal.estimatedCost && <span>~{pm.meal.estimatedCost.toFixed(0)}€</span>}
+              <span>{currentMeal.difficulty === "EASY" ? "Facile" : currentMeal.difficulty === "MEDIUM" ? "Moyen" : "Difficile"}</span>
+              {currentMeal.estimatedCost && <span>~{currentMeal.estimatedCost.toFixed(0)}€</span>}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -72,8 +95,17 @@ export default function MealCard({ plannedMeal: pm, onUpdate }: { plannedMeal: P
             className="flex-1 py-2 rounded-xl text-sm font-medium transition-all active:scale-95"
             style={{ background: "var(--muted)", color: "var(--foreground)" }}
           >
-            👁 Voir la recette
+            👁 Voir
           </button>
+          {allowChange && (
+            <button
+              onClick={() => setShowPicker(true)}
+              className="flex-1 py-2 rounded-xl text-sm font-medium transition-all active:scale-95"
+              style={{ background: "var(--muted)", color: "var(--foreground)" }}
+            >
+              ✏️ Changer
+            </button>
+          )}
           {pm.status !== "COOKED" && (
             <button
               onClick={markCooked}
@@ -133,7 +165,15 @@ export default function MealCard({ plannedMeal: pm, onUpdate }: { plannedMeal: P
         )}
       </div>
 
-      {showRecipe && <RecipeSheet meal={pm.meal} onClose={() => setShowRecipe(false)} />}
+      {showRecipe && <RecipeSheet meal={currentMeal} onClose={() => setShowRecipe(false)} />}
+
+      {showPicker && (
+        <MealPickerSheet
+          title="Changer ce repas"
+          onSelect={handleMealSelected}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
     </>
   );
 }

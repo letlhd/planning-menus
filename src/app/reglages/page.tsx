@@ -16,6 +16,14 @@ const FOOD_MODE_OPTIONS: { value: FoodMode; label: string }[] = [
   { value: "FESTIVE", label: "🎉 Festif" },
 ];
 
+const DINNER_MODE_OPTIONS: { value: FoodMode; label: string }[] = [
+  { value: "MEAT", label: "🥩 Viande" },
+  { value: "FISH", label: "🐟 Poisson" },
+  { value: "VEGETARIAN", label: "🥗 Végé" },
+  { value: "FESTIVE", label: "🎉 Festif" },
+  { value: "RECEPTION", label: "🥂 Réception" },
+];
+
 const DAYS = [
   { value: 1, label: "Lun" },
   { value: 2, label: "Mar" },
@@ -115,13 +123,27 @@ export default function ReglagesPage() {
         </SettingRow>
 
         <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)", background: "var(--card)" }}>
-          <p className="text-sm mb-2">Mode alimentaire par défaut</p>
+          <p className="text-sm mb-2">Mode déjeuner par défaut</p>
           <div className="grid grid-cols-4 gap-1">
             {FOOD_MODE_OPTIONS.map(({ value, label }) => (
               <button key={value} onClick={() => setSettings({ ...settings, defaultFoodMode: value })}
                 className="py-2 rounded-lg text-xs font-medium transition-all text-center"
                 style={{ background: settings.defaultFoodMode === value ? "var(--terracotta)" : "var(--muted)", color: settings.defaultFoodMode === value ? "white" : "var(--foreground)" }}>
                 {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)", background: "var(--card)" }}>
+          <p className="text-sm mb-1">Mode dîner par défaut</p>
+          <p className="text-xs mb-2" style={{ color: "var(--muted-foreground)" }}>Hors soirées festives</p>
+          <div className="grid grid-cols-5 gap-1">
+            {DINNER_MODE_OPTIONS.map(({ value, label }) => (
+              <button key={value} onClick={() => setSettings({ ...settings, defaultDinnerFoodMode: value })}
+                className="py-2 rounded-lg text-xs font-medium transition-all text-center"
+                style={{ background: settings.defaultDinnerFoodMode === value ? "var(--terracotta)" : "var(--muted)", color: settings.defaultDinnerFoodMode === value ? "white" : "var(--foreground)" }}>
+                {label.split(" ")[0]}
               </button>
             ))}
           </div>

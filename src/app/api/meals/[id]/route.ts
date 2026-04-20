@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 
 const UpdateSchema = z.object({
   name: z.string().min(1).optional(),
-  foodMode: z.enum(["VEGETARIAN", "MEAT", "FISH", "FESTIVE"]).optional(),
+  foodMode: z.enum(["VEGETARIAN", "MEAT", "FISH", "FESTIVE", "RECEPTION"]).optional(),
+  mealTypes: z.array(z.enum(["LUNCH", "DINNER"])).optional(),
   budget: z.enum(["CHEAP", "NORMAL", "SPLURGE"]).optional(),
   difficulty: z.enum(["EASY", "MEDIUM", "HARD"]).optional(),
   prepTime: z.number().int().min(0).optional(),

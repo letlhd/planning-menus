@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 
 const UpdateSchema = z.object({
+  mealId: z.string().optional(),
   status: z.enum(["PLANNED", "VALIDATED", "COOKED", "SKIPPED"]).optional(),
   rating: z.number().int().min(1).max(5).optional(),
   notes: z.string().optional(),

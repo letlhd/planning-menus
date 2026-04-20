@@ -9,7 +9,7 @@ export type Season = "SPRING" | "SUMMER" | "AUTUMN" | "WINTER" | "ALL_YEAR";
 export type SeasonPref = "SUMMER" | "WINTER" | "ALL_YEAR";
 export type MealType = "LUNCH" | "DINNER";
 export type PlanStatus = "PLANNED" | "VALIDATED" | "COOKED" | "SKIPPED";
-export type FoodMode = "VEGETARIAN" | "MEAT" | "FISH" | "FESTIVE";
+export type FoodMode = "VEGETARIAN" | "MEAT" | "FISH" | "FESTIVE" | "RECEPTION";
 export type Aisle = "PRODUCE" | "MEAT_FISH" | "DAIRY" | "GROCERY" | "FROZEN" | "OTHER";
 
 export interface Ingredient {
@@ -42,6 +42,7 @@ export interface Meal {
   budget: Budget;
   servings: number;
   foodMode: FoodMode;
+  mealTypes: MealType[];
   isVegetarian: boolean;
   isVegan: boolean;
   isFish: boolean;
@@ -120,6 +121,7 @@ export interface Settings {
   defaultMealType: MealType;
   defaultBudget: Budget;
   defaultFoodMode: FoodMode;
+  defaultDinnerFoodMode: FoodMode;
   festiveDays: number[];
   noLunchDays: number[];
   maxPrepTime?: number;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Meal, FoodMode, Budget, Difficulty } from "@/types";
+import type { Meal, FoodMode, Budget, Difficulty, MealType } from "@/types";
 import RecipeSheet from "@/components/meals/RecipeSheet";
 
 const BUDGET_LABELS: Record<string, string> = { CHEAP: "€", NORMAL: "€€", SPLURGE: "€€€" };
@@ -13,12 +13,14 @@ const FOOD_MODE_LABELS: Record<string, string> = {
   MEAT: "🥩 Viande",
   FISH: "🐟 Poisson",
   FESTIVE: "🎉 Festif",
+  RECEPTION: "🥂 Réception",
 };
 const FOOD_MODE_COLORS: Record<string, string> = {
   VEGETARIAN: "var(--sage)",
   MEAT: "var(--terracotta)",
   FISH: "#4A90D9",
   FESTIVE: "var(--gold)",
+  RECEPTION: "#9B59B6",
 };
 
 function mealSeasonLabel(season: string[]): string {
@@ -36,7 +38,22 @@ const FOOD_MODE_OPTIONS: { value: FoodMode; label: string }[] = [
   { value: "FISH", label: "🐟 Poisson" },
   { value: "VEGETARIAN", label: "🥗 Végétarien" },
   { value: "FESTIVE", label: "🎉 Festif" },
+  { value: "RECEPTION", label: "🥂 Réception" },
 ];
+
+const MEAL_TYPE_OPTIONS: { value: MealType; label: string }[] = [
+  { value: "LUNCH", label: "🥣 Déjeuner" },
+  { value: "DINNER", label: "🍽️ Dîner" },
+];
+
+function mealTypeBadge(mealTypes: MealType[]): string {
+  const hasLunch = mealTypes?.includes("LUNCH");
+  const hasDinner = mealTypes?.includes("DINNER");
+  if (hasLunch && hasDinner) return "↕️ Les deux";
+  if (hasLunch) return "🥣 Déjeuner";
+  if (hasDinner) return "🍽️ Dîner";
+  return "🍽️ Dîner";
+}
 const BUDGET_OPTIONS: { value: Budget; label: string }[] = [
   { value: "CHEAP", label: "€ Serré" },
   { value: "NORMAL", label: "€€ Normal" },
@@ -156,6 +173,10 @@ export default function RecettesPage() {
                   >
                     {FOOD_MODE_LABELS[meal.foodMode] ?? meal.foodMode}
                   </span>
+                  {/* Badge type repas */}
+                  <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: "var(--muted)", color: "var(--muted-foreground)" }}>
+                    {mealTypeBadge(meal.mealTypes)}
+                  </span>
                   {/* Badge saison */}
                   <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: "var(--muted)", color: "var(--muted-foreground)" }}>
                     {mealSeasonLabel(meal.season)}
@@ -203,6 +224,7 @@ export default function RecettesPage() {
 function AddMealSheet({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
   const [name, setName] = useState("");
   const [foodMode, setFoodMode] = useState<FoodMode>("MEAT");
+  const [mealTypes, setMealTypes] = useState<MealType[]>(["DINNER"]);
   const [season, setSeason] = useState("ALL_YEAR");
   const [budget, setBudget] = useState<Budget>("NORMAL");
   const [difficulty, setDifficulty] = useState<Difficulty>("EASY");
@@ -210,6 +232,10 @@ function AddMealSheet({ onClose, onAdded }: { onClose: () => void; onAdded: () =
   const [cookTime, setCookTime] = useState(20);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  function toggleMealType(t: MealType) {
+    setMealTypes((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
+  }
 
   async function submit() {
     if (!name.trim()) { setError("Le nom est requis"); return; }
@@ -219,7 +245,7 @@ function AddMealSheet({ onClose, onAdded }: { onClose: () => void; onAdded: () =
       const res = await fetch("/api/meals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), foodMode, season: seasonArr, budget, difficulty, prepTime, cookTime }),
+        body: JSON.stringify({ name: name.trim(), foodMode, mealTypes, season: seasonArr, budget, difficulty, prepTime, cookTime }),
       });
       if (res.ok) onAdded();
       else setError("Erreur lors de l'ajout");
@@ -255,10 +281,24 @@ function AddMealSheet({ onClose, onAdded }: { onClose: () => void; onAdded: () =
             {error && <p className="text-xs mt-1" style={{ color: "var(--terracotta)" }}>{error}</p>}
           </div>
 
+          {/* Type de repas */}
+          <div>
+            <p className="text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Type de repas</p>
+            <div className="flex gap-2">
+              {MEAL_TYPE_OPTIONS.map(({ value, label }) => (
+                <button key={value} onClick={() => toggleMealType(value)}
+                  className="flex-1 py-2 rounded-lg text-xs font-medium transition-all"
+                  style={{ background: mealTypes.includes(value) ? "var(--terracotta)" : "var(--muted)", color: mealTypes.includes(value) ? "white" : "var(--foreground)" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Mode alimentaire */}
           <div>
             <p className="text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Mode alimentaire</p>
-            <div className="grid grid-cols-4 gap-1">
+            <div className="grid grid-cols-5 gap-1">
               {FOOD_MODE_OPTIONS.map(({ value, label }) => (
                 <button key={value} onClick={() => setFoodMode(value)}
                   className="py-2 rounded-lg text-xs font-medium transition-all"
