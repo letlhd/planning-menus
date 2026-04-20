@@ -6,9 +6,9 @@ import { generateMealSuggestions } from "@/lib/claude";
 const GenerateSchema = z.object({
   adults: z.number().int().min(1),
   children: z.number().int().min(0).default(0),
-  ambiance: z.enum(["LIGHT", "FUN", "BALANCED"]).default("BALANCED"),
+  foodMode: z.enum(["VEGETARIAN", "MEAT", "FISH", "FESTIVE"]).default("MEAT"),
+  seasonPref: z.enum(["SUMMER", "WINTER", "ALL_YEAR"]).default("ALL_YEAR"),
   budget: z.enum(["CHEAP", "NORMAL", "SPLURGE"]).default("NORMAL"),
-  vegetarian: z.boolean().default(false),
   days: z.number().int().min(1).max(7).default(7),
 });
 
@@ -19,7 +19,6 @@ export async function POST(req: NextRequest) {
   const settings = await prisma.settings.findUnique({ where: { id: "singleton" } });
   const dbRatio = settings?.dbRatio ?? 0.7;
 
-  // Repas récemment utilisés à exclure
   const recentMeals = await prisma.plannedMeal.findMany({
     where: { date: { gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000) } },
     select: { meal: { select: { name: true } } },
@@ -29,12 +28,15 @@ export async function POST(req: NextRequest) {
   const dbCount = Math.round(params.days * dbRatio);
   const claudeCount = params.days - dbCount;
 
-  // === Repas depuis la BDD ===
+  const vegetarianFilter =
+    params.foodMode === "VEGETARIAN"
+      ? { OR: [{ foodMode: "VEGETARIAN" as const }, { isVegetarian: true }, { isVegan: true }] }
+      : {};
+
   const dbMeals = await prisma.meal.findMany({
     where: {
-      ...(params.vegetarian ? { OR: [{ isVegetarian: true }, { isVegan: true }] } : {}),
+      ...vegetarianFilter,
       ...(params.budget === "CHEAP" ? { budget: "CHEAP" } : {}),
-      ...(params.budget === "SPLURGE" ? { budget: { in: ["NORMAL", "SPLURGE"] } } : {}),
       name: { notIn: excludeNames },
     },
     include: { recipe: true },
@@ -42,10 +44,8 @@ export async function POST(req: NextRequest) {
     take: dbCount * 3,
   });
 
-  // Sélection aléatoire pondérée parmi les résultats BDD
   const shuffled = dbMeals.sort(() => Math.random() - 0.5).slice(0, dbCount);
 
-  // === Repas depuis Claude ===
   let claudeMeals: object[] = [];
   if (claudeCount > 0 && process.env.ANTHROPIC_API_KEY) {
     try {
@@ -53,13 +53,12 @@ export async function POST(req: NextRequest) {
         count: claudeCount,
         adults: params.adults,
         children: params.children,
-        ambiance: params.ambiance,
+        foodMode: params.foodMode,
+        seasonPref: params.seasonPref,
         budget: params.budget,
-        vegetarian: params.vegetarian,
         exclude: [...excludeNames, ...shuffled.map((m) => m.name)],
       });
     } catch {
-      // fallback to more BDD meals
       const extra = await prisma.meal.findMany({
         where: { name: { notIn: [...excludeNames, ...shuffled.map((m) => m.name)] } },
         take: claudeCount,
@@ -71,6 +70,5 @@ export async function POST(req: NextRequest) {
   }
 
   const allMeals = [...shuffled, ...claudeMeals].slice(0, params.days);
-
   return NextResponse.json({ meals: allMeals, dbCount: shuffled.length, claudeCount: claudeMeals.length });
 }

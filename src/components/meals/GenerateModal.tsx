@@ -3,15 +3,15 @@
 import { useEffect, useState } from "react";
 import { format, addDays, startOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
-import type { Settings, Ambiance, Budget, MealType, PlannedMeal } from "@/types";
+import type { Settings, FoodMode, SeasonPref, MealType, PlannedMeal } from "@/types";
 
 interface SlotConfig {
   date: string;
   mealType: MealType;
   dayLabel: string;
-  ambiance: Ambiance;
-  budget: Budget;
-  vegetarian: boolean;
+  foodMode: FoodMode;
+  seasonPref: SeasonPref;
+  budget: string;
   adults: number;
   children: number;
   enabled: boolean;
@@ -30,11 +30,32 @@ export interface GeneratedResult {
 }
 
 const DAY_FR = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
-const AMBIANCE_ICONS: Record<Ambiance, string> = { LIGHT: "🥗", BALANCED: "⚖️", FUN: "🍕" };
-const BUDGET_LABELS: Record<Budget, string> = { CHEAP: "€", NORMAL: "€€", SPLURGE: "€€€" };
+
+const FOOD_MODE_OPTIONS: { value: FoodMode; label: string }[] = [
+  { value: "MEAT", label: "🥩 Viande" },
+  { value: "FISH", label: "🐟 Poisson" },
+  { value: "VEGETARIAN", label: "🥗 Végé" },
+  { value: "FESTIVE", label: "🎉 Festif" },
+];
+
+const SEASON_OPTIONS: { value: SeasonPref; label: string }[] = [
+  { value: "SUMMER", label: "☀️ Été" },
+  { value: "WINTER", label: "❄️ Hiver" },
+  { value: "ALL_YEAR", label: "🌍 Toute saison" },
+];
+
+const BUDGET_OPTIONS = [
+  { value: "CHEAP", label: "€" },
+  { value: "NORMAL", label: "€€" },
+  { value: "SPLURGE", label: "€€€" },
+];
+
+function autoSeasonPref(): SeasonPref {
+  const month = new Date().getMonth(); // 0-11
+  return month >= 3 && month <= 8 ? "SUMMER" : "WINTER";
+}
 
 export default function GenerateModal({ onClose, onGenerated }: GenerateModalProps) {
-  const [settings, setSettings] = useState<Settings | null>(null);
   const [slots, setSlots] = useState<SlotConfig[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
@@ -49,52 +70,52 @@ export default function GenerateModal({ onClose, onGenerated }: GenerateModalPro
       ]);
       const s: Settings = await sRes.json();
       const planned: PlannedMeal[] = await pRes.json();
-      setSettings(s);
 
       const plannedKeys = new Set(
         planned.map((pm) => `${String(pm.date).substring(0, 10)}_${pm.mealType}`)
       );
 
+      const season = autoSeasonPref();
       const newSlots: SlotConfig[] = [];
+
       for (let i = 0; i < 7; i++) {
         const day = addDays(weekStart, i);
         const dayOfWeek = day.getDay();
         const dateStr = format(day, "yyyy-MM-dd");
-        const isFunDay = s.funDays?.includes(dayOfWeek);
-        const isNoLunchDay = s.noLunchDays?.includes(dayOfWeek);
+        const isFestiveDay = (s.festiveDays ?? [5, 6, 0]).includes(dayOfWeek);
+        const isNoLunchDay = (s.noLunchDays ?? [1, 2, 4, 5]).includes(dayOfWeek);
 
         // Dîner
         newSlots.push({
           date: dateStr,
           mealType: "DINNER",
           dayLabel: `${DAY_FR[dayOfWeek]} ${format(day, "d MMM", { locale: fr })}`,
-          ambiance: isFunDay ? "FUN" : s.defaultAmbiance,
-          budget: s.defaultBudget,
-          vegetarian: Boolean(s.vegetarianEvening),
-          adults: s.adultsCount,
-          children: s.childrenCount,
+          foodMode: isFestiveDay ? "FESTIVE" : s.defaultFoodMode ?? "MEAT",
+          seasonPref: season,
+          budget: s.defaultBudget ?? "NORMAL",
+          adults: s.adultsCount ?? 2,
+          children: s.childrenCount ?? 2,
           enabled: true,
           alreadyPlanned: plannedKeys.has(`${dateStr}_DINNER`),
         });
 
-        // Déjeuner (seulement si pas dans noLunchDays)
+        // Déjeuner
         if (!isNoLunchDay) {
           newSlots.push({
             date: dateStr,
             mealType: "LUNCH",
             dayLabel: `${DAY_FR[dayOfWeek]} ${format(day, "d MMM", { locale: fr })}`,
-            ambiance: s.defaultAmbiance,
-            budget: s.defaultBudget,
-            vegetarian: Boolean(s.vegetarianOverride),
-            adults: s.adultsCount,
-            children: s.childrenCount,
+            foodMode: s.defaultFoodMode ?? "MEAT",
+            seasonPref: season,
+            budget: s.defaultBudget ?? "NORMAL",
+            adults: s.adultsCount ?? 2,
+            children: s.childrenCount ?? 2,
             enabled: true,
             alreadyPlanned: plannedKeys.has(`${dateStr}_LUNCH`),
           });
         }
       }
 
-      // Trier : dîner/déj par date
       newSlots.sort((a, b) => {
         if (a.date !== b.date) return a.date.localeCompare(b.date);
         return a.mealType === "DINNER" ? 1 : -1;
@@ -105,14 +126,10 @@ export default function GenerateModal({ onClose, onGenerated }: GenerateModalPro
     init();
   }, []);
 
-  function updateSlot(key: string, patch: Partial<SlotConfig>) {
-    setSlots((prev) =>
-      prev.map((s) => (slotKey(s) === key ? { ...s, ...patch } : s))
-    );
-  }
+  function slotKey(s: SlotConfig) { return `${s.date}_${s.mealType}`; }
 
-  function slotKey(s: SlotConfig) {
-    return `${s.date}_${s.mealType}`;
+  function updateSlot(key: string, patch: Partial<SlotConfig>) {
+    setSlots((prev) => prev.map((s) => (slotKey(s) === key ? { ...s, ...patch } : s)));
   }
 
   async function generate() {
@@ -120,7 +137,6 @@ export default function GenerateModal({ onClose, onGenerated }: GenerateModalPro
     const toGenerate = slots.filter((s) => s.enabled && !s.alreadyPlanned);
     try {
       const results: GeneratedResult[] = [];
-      // On génère slot par slot avec leurs paramètres
       await Promise.all(
         toGenerate.map(async (slot) => {
           const res = await fetch("/api/generate/slot", {
@@ -129,9 +145,9 @@ export default function GenerateModal({ onClose, onGenerated }: GenerateModalPro
             body: JSON.stringify({
               adults: slot.adults,
               children: slot.children,
-              ambiance: slot.ambiance,
+              foodMode: slot.foodMode,
+              seasonPref: slot.seasonPref,
               budget: slot.budget,
-              vegetarian: slot.vegetarian,
               mealType: slot.mealType,
             }),
           });
@@ -176,7 +192,7 @@ export default function GenerateModal({ onClose, onGenerated }: GenerateModalPro
           {slots.length === 0 ? (
             <div className="py-8 text-center" style={{ color: "var(--muted-foreground)" }}>
               <p className="text-2xl mb-2">⏳</p>
-              <p className="text-sm">Chargement...</p>
+              <p className="text-sm">Chargement des paramètres...</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -224,12 +240,12 @@ function SlotRow({
   onToggleExpand: () => void;
   onUpdate: (patch: Partial<SlotConfig>) => void;
 }) {
+  const modeLabel = FOOD_MODE_OPTIONS.find((o) => o.value === slot.foodMode)?.label ?? "";
+  const seasonLabel = SEASON_OPTIONS.find((o) => o.value === slot.seasonPref)?.label ?? "";
+
   if (slot.alreadyPlanned) {
     return (
-      <div
-        className="flex items-center gap-3 p-3 rounded-xl opacity-50"
-        style={{ background: "var(--muted)" }}
-      >
+      <div className="flex items-center gap-3 p-3 rounded-xl opacity-50" style={{ background: "var(--muted)" }}>
         <span className="text-base">✅</span>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>
@@ -264,21 +280,16 @@ function SlotRow({
             {slot.dayLabel} · {slot.mealType === "DINNER" ? "Dîner" : "Déjeuner"}
           </p>
           <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-sm">{AMBIANCE_ICONS[slot.ambiance]}</span>
-            <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-              {BUDGET_LABELS[slot.budget]}
-            </span>
-            <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-              {slot.adults}👨{slot.children > 0 ? `${slot.children}👧` : ""}
-            </span>
-            {slot.vegetarian && <span className="text-xs">🥗</span>}
+            <span className="text-xs">{modeLabel}</span>
+            <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>·</span>
+            <span className="text-xs">{seasonLabel}</span>
           </div>
         </div>
 
         <button
           onClick={onToggleExpand}
-          className="text-lg transition-transform"
-          style={{ transform: isExpanded ? "rotate(180deg)" : "none", color: "var(--muted-foreground)" }}
+          className="text-lg transition-transform shrink-0"
+          style={{ transform: isExpanded ? "rotate(90deg)" : "none", color: "var(--muted-foreground)" }}
         >
           ›
         </button>
@@ -287,21 +298,41 @@ function SlotRow({
       {/* Panneau expandable */}
       {isExpanded && (
         <div className="px-4 pb-4 pt-1 space-y-3" style={{ borderTop: "1px solid var(--border)" }}>
-          {/* Ambiance */}
+          {/* Mode alimentaire */}
           <div>
-            <p className="text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Ambiance</p>
-            <div className="flex gap-1.5">
-              {(["LIGHT", "BALANCED", "FUN"] as Ambiance[]).map((a) => (
+            <p className="text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Mode alimentaire</p>
+            <div className="grid grid-cols-4 gap-1">
+              {FOOD_MODE_OPTIONS.map(({ value, label }) => (
                 <button
-                  key={a}
-                  onClick={() => onUpdate({ ambiance: a })}
-                  className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-all"
+                  key={value}
+                  onClick={() => onUpdate({ foodMode: value })}
+                  className="py-1.5 rounded-lg text-xs font-medium transition-all text-center"
                   style={{
-                    background: slot.ambiance === a ? "var(--terracotta)" : "var(--muted)",
-                    color: slot.ambiance === a ? "white" : "var(--foreground)",
+                    background: slot.foodMode === value ? "var(--terracotta)" : "var(--muted)",
+                    color: slot.foodMode === value ? "white" : "var(--foreground)",
                   }}
                 >
-                  {AMBIANCE_ICONS[a]} {a === "LIGHT" ? "Léger" : a === "BALANCED" ? "Équilibré" : "Fun"}
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Saison */}
+          <div>
+            <p className="text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Saison</p>
+            <div className="flex gap-1">
+              {SEASON_OPTIONS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => onUpdate({ seasonPref: value })}
+                  className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-all"
+                  style={{
+                    background: slot.seasonPref === value ? "var(--terracotta)" : "var(--muted)",
+                    color: slot.seasonPref === value ? "white" : "var(--foreground)",
+                  }}
+                >
+                  {label}
                 </button>
               ))}
             </div>
@@ -310,36 +341,32 @@ function SlotRow({
           {/* Budget */}
           <div>
             <p className="text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Budget</p>
-            <div className="flex gap-1.5">
-              {(["CHEAP", "NORMAL", "SPLURGE"] as Budget[]).map((b) => (
+            <div className="flex gap-1">
+              {BUDGET_OPTIONS.map(({ value, label }) => (
                 <button
-                  key={b}
-                  onClick={() => onUpdate({ budget: b })}
+                  key={value}
+                  onClick={() => onUpdate({ budget: value })}
                   className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-all"
                   style={{
-                    background: slot.budget === b ? "var(--terracotta)" : "var(--muted)",
-                    color: slot.budget === b ? "white" : "var(--foreground)",
+                    background: slot.budget === value ? "var(--terracotta)" : "var(--muted)",
+                    color: slot.budget === value ? "white" : "var(--foreground)",
                   }}
                 >
-                  {BUDGET_LABELS[b]}
+                  {label}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Personnes + Végé */}
+          {/* Personnes */}
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>👨</span>
+              <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>👨 Adultes</span>
               <Stepper value={slot.adults} min={1} max={10} onChange={(v) => onUpdate({ adults: v })} />
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>👧</span>
+              <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>👧 Enfants</span>
               <Stepper value={slot.children} min={0} max={8} onChange={(v) => onUpdate({ children: v })} />
-            </div>
-            <div className="flex items-center gap-2 ml-auto">
-              <span className="text-xs">🥗</span>
-              <Toggle value={slot.vegetarian} onChange={(v) => onUpdate({ vegetarian: v })} />
             </div>
           </div>
         </div>
@@ -352,20 +379,8 @@ function Stepper({ value, min, max, onChange }: { value: number; min: number; ma
   return (
     <div className="flex items-center gap-2">
       <button onClick={() => onChange(Math.max(min, value - 1))} className="w-6 h-6 rounded-full flex items-center justify-center text-sm" style={{ background: "var(--muted)" }}>−</button>
-      <span className="text-sm font-semibold w-3 text-center">{value}</span>
+      <span className="text-sm font-semibold w-4 text-center">{value}</span>
       <button onClick={() => onChange(Math.min(max, value + 1))} className="w-6 h-6 rounded-full flex items-center justify-center text-sm" style={{ background: "var(--muted)" }}>+</button>
     </div>
-  );
-}
-
-function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      onClick={() => onChange(!value)}
-      className="w-10 h-5 rounded-full transition-all relative"
-      style={{ background: value ? "var(--sage)" : "var(--border)" }}
-    >
-      <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all" style={{ left: value ? "calc(100% - 18px)" : "2px" }} />
-    </button>
   );
 }

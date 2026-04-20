@@ -871,12 +871,13 @@ async function main() {
     create: {
       id: "singleton",
       adultsCount: 2,
-      childrenCount: 0,
+      childrenCount: 2,
       defaultDays: [1, 2, 3, 4, 5, 6, 0],
       defaultMealType: "DINNER",
       defaultBudget: "NORMAL",
-      defaultAmbiance: "BALANCED",
-      vegetarianOverride: false,
+      defaultFoodMode: "MEAT",
+      festiveDays: [5, 6, 0],
+      noLunchDays: [1, 2, 4, 5],
       dbRatio: 0.7,
     },
   });

@@ -2,13 +2,56 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { Meal, Recipe } from "@/types";
+import type { Meal, Recipe, FoodMode, Budget, Difficulty } from "@/types";
 
-export default function RecipeSheet({ meal, onClose }: { meal: Meal; onClose: () => void }) {
+const FOOD_MODE_OPTIONS: { value: FoodMode; label: string }[] = [
+  { value: "MEAT", label: "🥩 Viande" },
+  { value: "FISH", label: "🐟 Poisson" },
+  { value: "VEGETARIAN", label: "🥗 Végétarien" },
+  { value: "FESTIVE", label: "🎉 Festif" },
+];
+const BUDGET_OPTIONS: { value: Budget; label: string }[] = [
+  { value: "CHEAP", label: "€ Serré" },
+  { value: "NORMAL", label: "€€ Normal" },
+  { value: "SPLURGE", label: "€€€ Plaisir" },
+];
+const DIFF_OPTIONS: { value: Difficulty; label: string }[] = [
+  { value: "EASY", label: "Facile" },
+  { value: "MEDIUM", label: "Moyen" },
+  { value: "HARD", label: "Difficile" },
+];
+const SEASON_OPTIONS: { value: string; label: string; season: string[] }[] = [
+  { value: "SUMMER", label: "☀️ Été", season: ["SUMMER"] },
+  { value: "WINTER", label: "❄️ Hiver", season: ["WINTER"] },
+  { value: "ALL_YEAR", label: "🌍 Toute saison", season: ["ALL_YEAR"] },
+];
+
+function mealSeasonKey(season: string[]): string {
+  if (!season || season.includes("ALL_YEAR")) return "ALL_YEAR";
+  const hasSummer = season.some((s) => ["SUMMER", "SPRING"].includes(s));
+  const hasWinter = season.some((s) => ["WINTER", "AUTUMN"].includes(s));
+  if (hasSummer && !hasWinter) return "SUMMER";
+  if (hasWinter && !hasSummer) return "WINTER";
+  return "ALL_YEAR";
+}
+
+export default function RecipeSheet({
+  meal,
+  onClose,
+  onDelete,
+  onUpdated,
+}: {
+  meal: Meal;
+  onClose: () => void;
+  onDelete?: () => void;
+  onUpdated?: (updated: Meal) => void;
+}) {
   const [recipe, setRecipe] = useState<Recipe | null>(meal.recipe ?? null);
   const [loading, setLoading] = useState(!meal.recipe);
   const [cookingMode, setCookingMode] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+  const [editMode, setEditMode] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     if (!meal.recipe) {
@@ -22,7 +65,7 @@ export default function RecipeSheet({ meal, onClose }: { meal: Meal; onClose: ()
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-50 flex flex-col"
+        className="fixed inset-0 z-[60] flex flex-col"
         style={{ background: "var(--background)" }}
         initial={{ y: "100%" }}
         animate={{ y: 0 }}
@@ -33,16 +76,24 @@ export default function RecipeSheet({ meal, onClose }: { meal: Meal; onClose: ()
         <div className="flex items-center justify-between px-4 py-4 pt-safe" style={{ borderBottom: "1px solid var(--border)" }}>
           <button onClick={onClose} className="text-2xl">←</button>
           <h1 className="font-semibold text-lg truncate mx-2 flex-1 text-center">{meal.name}</h1>
-          <button
-            onClick={() => setCookingMode(!cookingMode)}
-            className="text-sm px-3 py-1.5 rounded-xl font-medium transition-all"
-            style={{ background: cookingMode ? "var(--terracotta)" : "var(--muted)", color: cookingMode ? "white" : "var(--foreground)" }}
-          >
-            {cookingMode ? "👨‍🍳 Mode" : "🍳 Cuisiner"}
-          </button>
+          {!editMode && (
+            <button
+              onClick={() => setCookingMode(!cookingMode)}
+              className="text-sm px-3 py-1.5 rounded-xl font-medium transition-all"
+              style={{ background: cookingMode ? "var(--terracotta)" : "var(--muted)", color: cookingMode ? "white" : "var(--foreground)" }}
+            >
+              {cookingMode ? "👨‍🍳 Mode" : "🍳 Cuisiner"}
+            </button>
+          )}
         </div>
 
-        {loading ? (
+        {editMode ? (
+          <EditMealPanel
+            meal={meal}
+            onCancel={() => setEditMode(false)}
+            onSaved={(updated) => { setEditMode(false); onUpdated?.(updated); }}
+          />
+        ) : loading ? (
           <div className="flex-1 flex items-center justify-center flex-col gap-3">
             <div className="text-4xl animate-spin">🍳</div>
             <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>Génération de la recette...</p>
@@ -55,6 +106,45 @@ export default function RecipeSheet({ meal, onClose }: { meal: Meal; onClose: ()
           <CookingMode recipe={recipe} currentStep={currentStep} onStepChange={setCurrentStep} meal={meal} />
         ) : (
           <RecipeDetail recipe={recipe} meal={meal} />
+        )}
+
+        {/* Footer actions (hors cooking mode et edit mode) */}
+        {!cookingMode && !editMode && onDelete && (
+          <div className="px-4 py-3 shrink-0 flex gap-2" style={{ borderTop: "1px solid var(--border)" }}>
+            <button
+              onClick={() => setEditMode(true)}
+              className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all active:scale-95"
+              style={{ background: "var(--muted)", color: "var(--foreground)" }}
+            >
+              ✏️ Modifier
+            </button>
+            {!confirmDelete ? (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all active:scale-95"
+                style={{ background: "var(--muted)", color: "#e05252" }}
+              >
+                🗑 Supprimer
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-medium"
+                  style={{ background: "var(--muted)" }}
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={onDelete}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white"
+                  style={{ background: "#e05252" }}
+                >
+                  Confirmer 🗑
+                </button>
+              </>
+            )}
+          </div>
         )}
       </motion.div>
     </AnimatePresence>
@@ -154,6 +244,126 @@ function RecipeDetail({ recipe, meal }: { recipe: Recipe; meal: Meal }) {
           </div>
         </section>
       )}
+    </div>
+  );
+}
+
+function EditMealPanel({
+  meal,
+  onCancel,
+  onSaved,
+}: {
+  meal: Meal;
+  onCancel: () => void;
+  onSaved: (updated: Meal) => void;
+}) {
+  const [foodMode, setFoodMode] = useState<FoodMode>(meal.foodMode ?? "MEAT");
+  const [budget, setBudget] = useState<Budget>(meal.budget);
+  const [difficulty, setDifficulty] = useState<Difficulty>(meal.difficulty);
+  const [seasonKey, setSeasonKey] = useState(mealSeasonKey(meal.season));
+  const [prepTime, setPrepTime] = useState(meal.prepTime);
+  const [cookTime, setCookTime] = useState(meal.cookTime);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    const seasonArr = SEASON_OPTIONS.find((s) => s.value === seasonKey)?.season ?? ["ALL_YEAR"];
+    try {
+      const res = await fetch(`/api/meals/${meal.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ foodMode, budget, difficulty, season: seasonArr, prepTime, cookTime }),
+      });
+      if (res.ok) {
+        const updated: Meal = await res.json();
+        onSaved(updated);
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div>
+        <p className="text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Mode alimentaire</p>
+        <div className="grid grid-cols-4 gap-1">
+          {FOOD_MODE_OPTIONS.map(({ value, label }) => (
+            <button key={value} onClick={() => setFoodMode(value)}
+              className="py-2 rounded-lg text-xs font-medium transition-all"
+              style={{ background: foodMode === value ? "var(--terracotta)" : "var(--muted)", color: foodMode === value ? "white" : "var(--foreground)" }}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Saison</p>
+        <div className="flex gap-1">
+          {SEASON_OPTIONS.map(({ value, label }) => (
+            <button key={value} onClick={() => setSeasonKey(value)}
+              className="flex-1 py-2 rounded-lg text-xs font-medium transition-all"
+              style={{ background: seasonKey === value ? "var(--terracotta)" : "var(--muted)", color: seasonKey === value ? "white" : "var(--foreground)" }}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Budget</p>
+        <div className="flex gap-1">
+          {BUDGET_OPTIONS.map(({ value, label }) => (
+            <button key={value} onClick={() => setBudget(value)}
+              className="flex-1 py-2 rounded-lg text-xs font-medium transition-all"
+              style={{ background: budget === value ? "var(--terracotta)" : "var(--muted)", color: budget === value ? "white" : "var(--foreground)" }}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Difficulté</p>
+        <div className="flex gap-1">
+          {DIFF_OPTIONS.map(({ value, label }) => (
+            <button key={value} onClick={() => setDifficulty(value)}
+              className="flex-1 py-2 rounded-lg text-xs font-medium transition-all"
+              style={{ background: difficulty === value ? "var(--terracotta)" : "var(--muted)", color: difficulty === value ? "white" : "var(--foreground)" }}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex gap-4">
+        <div className="flex-1">
+          <p className="text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Prép. (min)</p>
+          <input type="number" value={prepTime} onChange={(e) => setPrepTime(Math.max(0, parseInt(e.target.value) || 0))}
+            className="w-full px-3 py-2 rounded-xl text-sm text-right outline-none"
+            style={{ background: "var(--muted)", border: "1px solid var(--border)", color: "var(--foreground)" }} />
+        </div>
+        <div className="flex-1">
+          <p className="text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Cuisson (min)</p>
+          <input type="number" value={cookTime} onChange={(e) => setCookTime(Math.max(0, parseInt(e.target.value) || 0))}
+            className="w-full px-3 py-2 rounded-xl text-sm text-right outline-none"
+            style={{ background: "var(--muted)", border: "1px solid var(--border)", color: "var(--foreground)" }} />
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-2">
+        <button onClick={onCancel}
+          className="flex-1 py-2.5 rounded-xl text-sm font-medium"
+          style={{ background: "var(--muted)" }}>
+          Annuler
+        </button>
+        <button onClick={save} disabled={saving}
+          className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
+          style={{ background: "var(--terracotta)" }}>
+          {saving ? "Sauvegarde..." : "Enregistrer ✓"}
+        </button>
+      </div>
     </div>
   );
 }

@@ -16,6 +16,7 @@ model Meal {
   difficulty    Difficulty
   budget        Budget
   servings      Int       @default(4)
+  foodMode      FoodMode  @default(MEAT)
   isVegetarian  Boolean   @default(false)
   isVegan       Boolean   @default(false)
   isFish        Boolean   @default(false)
@@ -122,21 +123,19 @@ model BlogSource {
 }
 
 model Settings {
-  id                 String   @id @default("singleton")
-  adultsCount        Int      @default(2)
-  childrenCount      Int      @default(2)
-  defaultDays        Int[]    @default([1, 2, 3, 4, 5, 6, 0])
-  defaultMealType    MealType @default(DINNER)
-  defaultBudget      Budget   @default(NORMAL)
-  defaultAmbiance    Ambiance @default(BALANCED)
-  vegetarianOverride Boolean  @default(false)
-  vegetarianEvening  Boolean  @default(false)
-  funDays            Int[]    @default([5, 6, 0])
-  noLunchDays        Int[]    @default([1, 2, 4, 5])
-  maxPrepTime        Int?
-  dbRatio            Float    @default(0.7)
-  weeklyBudgetGoal   Float?
-  updatedAt          DateTime @updatedAt
+  id              String   @id @default("singleton")
+  adultsCount     Int      @default(2)
+  childrenCount   Int      @default(2)
+  defaultDays     Int[]    @default([1, 2, 3, 4, 5, 6, 0])
+  defaultMealType MealType @default(DINNER)
+  defaultBudget   Budget   @default(NORMAL)
+  defaultFoodMode FoodMode @default(MEAT)
+  festiveDays     Int[]    @default([5, 6, 0])
+  noLunchDays     Int[]    @default([1, 2, 4, 5])
+  maxPrepTime     Int?
+  dbRatio         Float    @default(0.7)
+  weeklyBudgetGoal Float?
+  updatedAt       DateTime @updatedAt
 }
 
 enum Category {
@@ -202,8 +201,9 @@ enum Aisle {
   OTHER
 }
 
-enum Ambiance {
-  LIGHT
-  FUN
-  BALANCED
+enum FoodMode {
+  VEGETARIAN
+  MEAT
+  FISH
+  FESTIVE
 }

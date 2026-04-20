@@ -4,21 +4,22 @@ import { prisma } from "@/lib/prisma";
 
 const MealSchema = z.object({
   name: z.string().min(1),
-  category: z.string(),
+  category: z.string().default("OTHER"),
   tags: z.array(z.string()).default([]),
-  prepTime: z.number().int().min(0),
-  cookTime: z.number().int().min(0),
-  difficulty: z.enum(["EASY", "MEDIUM", "HARD"]),
-  budget: z.enum(["CHEAP", "NORMAL", "SPLURGE"]),
+  prepTime: z.number().int().min(0).default(0),
+  cookTime: z.number().int().min(0).default(0),
+  difficulty: z.enum(["EASY", "MEDIUM", "HARD"]).default("EASY"),
+  budget: z.enum(["CHEAP", "NORMAL", "SPLURGE"]).default("NORMAL"),
   servings: z.number().int().default(4),
+  foodMode: z.enum(["VEGETARIAN", "MEAT", "FISH", "FESTIVE"]).default("MEAT"),
   isVegetarian: z.boolean().default(false),
   isVegan: z.boolean().default(false),
   isFish: z.boolean().default(false),
   canPrepAhead: z.boolean().default(false),
   season: z.array(z.string()).default(["ALL_YEAR"]),
-  ingredients: z.array(z.object({ name: z.string(), quantity: z.number(), unit: z.string() })),
+  ingredients: z.array(z.object({ name: z.string(), quantity: z.number(), unit: z.string() })).default([]),
   estimatedCost: z.number().optional(),
-  isCustom: z.boolean().default(false),
+  isCustom: z.boolean().default(true),
 });
 
 export async function GET(req: NextRequest) {
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
   const meals = await prisma.meal.findMany({
     where: {
       ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
-      ...(vegetarian ? { OR: [{ isVegetarian: true }, { isVegan: true }] } : {}),
+      ...(vegetarian ? { OR: [{ foodMode: "VEGETARIAN" }, { isVegetarian: true }, { isVegan: true }] } : {}),
     },
     include: { recipe: true },
     orderBy: { name: "asc" },
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
   const data = MealSchema.parse(body);
 
   const meal = await prisma.meal.create({
-    data: { ...data, season: data.season as never },
+    data: { ...data, category: data.category as never, season: data.season as never },
     include: { recipe: true },
   });
 

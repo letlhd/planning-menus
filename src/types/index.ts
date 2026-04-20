@@ -6,9 +6,10 @@ export type Category =
 export type Difficulty = "EASY" | "MEDIUM" | "HARD";
 export type Budget = "CHEAP" | "NORMAL" | "SPLURGE";
 export type Season = "SPRING" | "SUMMER" | "AUTUMN" | "WINTER" | "ALL_YEAR";
+export type SeasonPref = "SUMMER" | "WINTER" | "ALL_YEAR";
 export type MealType = "LUNCH" | "DINNER";
 export type PlanStatus = "PLANNED" | "VALIDATED" | "COOKED" | "SKIPPED";
-export type Ambiance = "LIGHT" | "FUN" | "BALANCED";
+export type FoodMode = "VEGETARIAN" | "MEAT" | "FISH" | "FESTIVE";
 export type Aisle = "PRODUCE" | "MEAT_FISH" | "DAIRY" | "GROCERY" | "FROZEN" | "OTHER";
 
 export interface Ingredient {
@@ -40,6 +41,7 @@ export interface Meal {
   difficulty: Difficulty;
   budget: Budget;
   servings: number;
+  foodMode: FoodMode;
   isVegetarian: boolean;
   isVegan: boolean;
   isFish: boolean;
@@ -117,10 +119,8 @@ export interface Settings {
   defaultDays: number[];
   defaultMealType: MealType;
   defaultBudget: Budget;
-  defaultAmbiance: Ambiance;
-  vegetarianOverride: boolean;
-  vegetarianEvening: boolean;
-  funDays: number[];
+  defaultFoodMode: FoodMode;
+  festiveDays: number[];
   noLunchDays: number[];
   maxPrepTime?: number;
   dbRatio: number;
@@ -130,8 +130,8 @@ export interface Settings {
 export interface GenerationParams {
   adults: number;
   children: number;
-  ambiance: Ambiance;
+  foodMode: FoodMode;
+  seasonPref: SeasonPref;
   budget: Budget;
-  vegetarian: boolean;
   days: number;
 }

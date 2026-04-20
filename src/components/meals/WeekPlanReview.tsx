@@ -29,7 +29,7 @@ export default function WeekPlanReview({ results, onDone, onClose }: WeekPlanRev
     results.map((r) => ({
       date: r.date,
       mealType: r.mealType,
-      meal: r.meal as Meal,
+      meal: r.meal as unknown as Meal,
       validated: false,
       swapping: false,
     }))

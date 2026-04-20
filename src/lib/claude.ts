@@ -16,15 +16,29 @@ function logTokenUsage(label: string, usage: { input_tokens: number; output_toke
   }
 }
 
+const FOOD_MODE_FR: Record<string, string> = {
+  VEGETARIAN: "végétarien",
+  MEAT: "avec viande",
+  FISH: "avec poisson ou fruits de mer",
+  FESTIVE: "festif et convivial",
+};
+const SEASON_FR: Record<string, string> = {
+  SUMMER: "estivale (légèreté, fraîcheur, produits de saison été)",
+  WINTER: "hivernale (réconfortant, chaud, produits de saison hiver)",
+};
+
 export async function generateMealSuggestions(params: {
   count: number;
   adults: number;
   children: number;
-  ambiance: string;
+  foodMode: string;
+  seasonPref: string;
   budget: string;
-  vegetarian: boolean;
   exclude: string[];
 }): Promise<object[]> {
+  const modeDesc = FOOD_MODE_FR[params.foodMode] ?? "";
+  const seasonDesc = SEASON_FR[params.seasonPref] ? ` Cuisine ${SEASON_FR[params.seasonPref]}.` : "";
+
   const response = await anthropic.messages.create({
     model: CLAUDE_MODEL,
     max_tokens: 2048,
@@ -32,11 +46,11 @@ export async function generateMealSuggestions(params: {
     messages: [
       {
         role: "user",
-        content: `Propose ${params.count} idées de repas du soir pour ${params.adults} adulte(s) et ${params.children} enfant(s).
-Ambiance: ${params.ambiance}. Budget: ${params.budget}. ${params.vegetarian ? "Végétarien uniquement." : ""}
+        content: `Propose ${params.count} idées de repas pour ${params.adults} adulte(s) et ${params.children} enfant(s).
+Mode: ${modeDesc}. Budget: ${params.budget}.${seasonDesc}
 Exclure: ${params.exclude.join(", ") || "rien"}.
 
-Format JSON: [{"name":"...","category":"...","prepTime":N,"cookTime":N,"difficulty":"EASY|MEDIUM|HARD","budget":"CHEAP|NORMAL|SPLURGE","isVegetarian":bool,"isVegan":bool,"isFish":bool,"canPrepAhead":bool,"estimatedCost":N,"season":["ALL_YEAR"],"tags":[],"ingredients":[{"name":"...","quantity":N,"unit":"..."}]}]`,
+Format JSON: [{"name":"...","category":"...","prepTime":N,"cookTime":N,"difficulty":"EASY|MEDIUM|HARD","budget":"CHEAP|NORMAL|SPLURGE","foodMode":"VEGETARIAN|MEAT|FISH|FESTIVE","isVegetarian":bool,"isVegan":bool,"isFish":bool,"canPrepAhead":bool,"estimatedCost":N,"season":["ALL_YEAR"],"tags":[],"ingredients":[{"name":"...","quantity":N,"unit":"..."}]}]`,
       },
     ],
   });

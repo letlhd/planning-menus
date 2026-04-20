@@ -6,12 +6,17 @@ import { generateMealSuggestions } from "@/lib/claude";
 const SlotSchema = z.object({
   adults: z.number().int().min(1),
   children: z.number().int().min(0).default(0),
-  ambiance: z.enum(["LIGHT", "FUN", "BALANCED"]).default("BALANCED"),
+  foodMode: z.enum(["VEGETARIAN", "MEAT", "FISH", "FESTIVE"]).default("MEAT"),
+  seasonPref: z.enum(["SUMMER", "WINTER", "ALL_YEAR"]).default("ALL_YEAR"),
   budget: z.enum(["CHEAP", "NORMAL", "SPLURGE"]).default("NORMAL"),
-  vegetarian: z.boolean().default(false),
   mealType: z.enum(["LUNCH", "DINNER"]).default("DINNER"),
   exclude: z.array(z.string()).default([]),
 });
+
+function currentSeasonPref(): "SUMMER" | "WINTER" {
+  const month = new Date().getMonth(); // 0-11
+  return month >= 3 && month <= 8 ? "SUMMER" : "WINTER";
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -26,15 +31,33 @@ export async function POST(req: NextRequest) {
   });
   const excludeNames = [...new Set([...recentMeals.map((pm) => pm.meal.name), ...params.exclude])];
 
+  // Filtre foodMode — on garde aussi la compat avec les anciens champs booléens
+  const foodModeFilter =
+    params.foodMode === "VEGETARIAN"
+      ? { OR: [{ foodMode: "VEGETARIAN" as const }, { isVegetarian: true }, { isVegan: true }] }
+      : params.foodMode === "FISH"
+      ? { OR: [{ foodMode: "FISH" as const }, { isFish: true }] }
+      : params.foodMode === "FESTIVE"
+      ? { tags: { hasSome: ["festif", "fête", "fun", "convivial", "festive"] } }
+      : {}; // MEAT : pas de filtre spécifique
+
+  // Filtre saison — auto si non précisé
+  const season = params.seasonPref === "ALL_YEAR" ? currentSeasonPref() : params.seasonPref;
+  const seasonFilter =
+    season === "SUMMER"
+      ? { season: { hasSome: ["SUMMER", "SPRING", "ALL_YEAR"] as never[] } }
+      : { season: { hasSome: ["WINTER", "AUTUMN", "ALL_YEAR"] as never[] } };
+
+  const budgetFilter = params.budget === "CHEAP" ? { budget: "CHEAP" as const } : {};
+
   const useDB = Math.random() < dbRatio;
 
   if (useDB) {
     const meal = await prisma.meal.findFirst({
       where: {
-        ...(params.vegetarian ? { OR: [{ isVegetarian: true }, { isVegan: true }] } : {}),
-        ...(params.budget === "CHEAP" ? { budget: "CHEAP" } : {}),
-        ...(params.ambiance === "LIGHT" ? { difficulty: "EASY" } : {}),
-        ...(params.ambiance === "FUN" ? { tags: { hasSome: ["fun", "convivial", "enfants"] } } : {}),
+        ...foodModeFilter,
+        ...seasonFilter,
+        ...budgetFilter,
         name: { notIn: excludeNames },
       },
       include: { recipe: true },
@@ -51,9 +74,9 @@ export async function POST(req: NextRequest) {
         count: 1,
         adults: params.adults,
         children: params.children,
-        ambiance: params.ambiance,
+        foodMode: params.foodMode,
+        seasonPref: params.seasonPref === "ALL_YEAR" ? currentSeasonPref() : params.seasonPref,
         budget: params.budget,
-        vegetarian: params.vegetarian,
         exclude: excludeNames,
       });
       return NextResponse.json(meal);
