@@ -15,6 +15,16 @@ const AMBIANCE_OPTIONS: { value: Ambiance; label: string }[] = [
   { value: "FUN", label: "🍕 Fun" },
 ];
 
+const DAYS = [
+  { value: 1, label: "Lun" },
+  { value: 2, label: "Mar" },
+  { value: 3, label: "Mer" },
+  { value: 4, label: "Jeu" },
+  { value: 5, label: "Ven" },
+  { value: 6, label: "Sam" },
+  { value: 0, label: "Dim" },
+];
+
 export default function ReglagesPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,6 +54,10 @@ export default function ReglagesPage() {
     }
   }
 
+  function toggleDay(arr: number[], day: number): number[] {
+    return arr.includes(day) ? arr.filter((d) => d !== day) : [...arr, day];
+  }
+
   if (loading || !settings) {
     return <div className="px-4 pt-6"><div className="skeleton h-64 w-full rounded-2xl" /></div>;
   }
@@ -62,85 +76,94 @@ export default function ReglagesPage() {
         </SettingRow>
       </Section>
 
-      {/* Préférences */}
-      <Section title="🍽️ Préférences">
-        <SettingRow label="Budget par défaut">
+      {/* Préférences par défaut */}
+      <Section title="🍽️ Préférences par défaut">
+        <SettingRow label="Budget">
           <div className="flex gap-1">
             {BUDGET_OPTIONS.map(({ value, label }) => (
-              <button
-                key={value}
-                onClick={() => setSettings({ ...settings, defaultBudget: value })}
+              <button key={value} onClick={() => setSettings({ ...settings, defaultBudget: value })}
                 className="px-2 py-1 rounded-lg text-xs font-medium transition-all"
-                style={{
-                  background: settings.defaultBudget === value ? "var(--terracotta)" : "var(--muted)",
-                  color: settings.defaultBudget === value ? "white" : "var(--foreground)",
-                }}
-              >
+                style={{ background: settings.defaultBudget === value ? "var(--terracotta)" : "var(--muted)", color: settings.defaultBudget === value ? "white" : "var(--foreground)" }}>
                 {label}
               </button>
             ))}
           </div>
         </SettingRow>
-        <SettingRow label="Ambiance">
+        <SettingRow label="Ambiance par défaut">
           <div className="flex gap-1">
             {AMBIANCE_OPTIONS.map(({ value, label }) => (
-              <button
-                key={value}
-                onClick={() => setSettings({ ...settings, defaultAmbiance: value })}
+              <button key={value} onClick={() => setSettings({ ...settings, defaultAmbiance: value })}
                 className="px-2 py-1 rounded-lg text-xs font-medium transition-all"
-                style={{
-                  background: settings.defaultAmbiance === value ? "var(--terracotta)" : "var(--muted)",
-                  color: settings.defaultAmbiance === value ? "white" : "var(--foreground)",
-                }}
-              >
+                style={{ background: settings.defaultAmbiance === value ? "var(--terracotta)" : "var(--muted)", color: settings.defaultAmbiance === value ? "white" : "var(--foreground)" }}>
                 {label}
               </button>
             ))}
           </div>
         </SettingRow>
-        <SettingRow label="Végétarien par défaut">
-          <Toggle value={settings.vegetarianOverride} onChange={(v) => setSettings({ ...settings, vegetarianOverride: v })} />
+        <SettingRow label="Végétarien le soir">
+          <Toggle value={settings.vegetarianEvening} onChange={(v) => setSettings({ ...settings, vegetarianEvening: v })} />
         </SettingRow>
         <SettingRow label="Budget hebdo (€)">
-          <input
-            type="number"
-            value={settings.weeklyBudgetGoal ?? ""}
-            onChange={(e) => setSettings({ ...settings, weeklyBudgetGoal: e.target.value ? parseFloat(e.target.value) : undefined })}
-            placeholder="100"
-            className="w-20 px-2 py-1 rounded-lg text-sm border text-right outline-none"
-            style={{ background: "var(--muted)", border: "1px solid var(--border)", color: "var(--foreground)" }}
-          />
+          <input type="number" value={settings.weeklyBudgetGoal ?? ""} onChange={(e) => setSettings({ ...settings, weeklyBudgetGoal: e.target.value ? parseFloat(e.target.value) : undefined })}
+            placeholder="100" className="w-20 px-2 py-1 rounded-lg text-sm border text-right outline-none"
+            style={{ background: "var(--muted)", border: "1px solid var(--border)", color: "var(--foreground)" }} />
         </SettingRow>
+      </Section>
+
+      {/* Jours "Fun" */}
+      <Section title="🍕 Soirées fun">
+        <div className="px-4 py-3" style={{ background: "var(--card)" }}>
+          <p className="text-xs mb-2" style={{ color: "var(--muted-foreground)" }}>
+            Ces jours utilisent automatiquement l&apos;ambiance &ldquo;Fun&rdquo;
+          </p>
+          <div className="flex gap-1.5">
+            {DAYS.map(({ value, label }) => (
+              <button key={value}
+                onClick={() => setSettings({ ...settings, funDays: toggleDay(settings.funDays ?? [], value) })}
+                className="flex-1 py-2 rounded-lg text-xs font-medium transition-all"
+                style={{ background: (settings.funDays ?? []).includes(value) ? "var(--terracotta)" : "var(--muted)", color: (settings.funDays ?? []).includes(value) ? "white" : "var(--foreground)" }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </Section>
+
+      {/* Jours sans déjeuner */}
+      <Section title="🚫 Pas de déjeuner ces jours">
+        <div className="px-4 py-3" style={{ background: "var(--card)" }}>
+          <p className="text-xs mb-2" style={{ color: "var(--muted-foreground)" }}>
+            Aucun repas de midi proposé ces jours-là
+          </p>
+          <div className="flex gap-1.5">
+            {DAYS.map(({ value, label }) => (
+              <button key={value}
+                onClick={() => setSettings({ ...settings, noLunchDays: toggleDay(settings.noLunchDays ?? [], value) })}
+                className="flex-1 py-2 rounded-lg text-xs font-medium transition-all"
+                style={{ background: (settings.noLunchDays ?? []).includes(value) ? "var(--terracotta)" : "var(--muted)", color: (settings.noLunchDays ?? []).includes(value) ? "white" : "var(--foreground)" }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
       </Section>
 
       {/* Avancé */}
       <Section title="⚙️ Avancé">
-        <SettingRow label="Ratio BDD / Claude">
+        <SettingRow label={`Ratio BDD / Claude (${Math.round(settings.dbRatio * 100)}%)`}>
           <div className="flex items-center gap-2">
             <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>BDD</span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={Math.round(settings.dbRatio * 100)}
+            <input type="range" min={0} max={100} value={Math.round(settings.dbRatio * 100)}
               onChange={(e) => setSettings({ ...settings, dbRatio: parseInt(e.target.value) / 100 })}
-              className="w-24"
-              style={{ accentColor: "var(--terracotta)" }}
-            />
+              className="w-24" style={{ accentColor: "var(--terracotta)" }} />
             <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>Claude</span>
           </div>
         </SettingRow>
-        <SettingRow label="Ratio actuel">
-          <span className="text-sm">{Math.round(settings.dbRatio * 100)}% BDD / {100 - Math.round(settings.dbRatio * 100)}% Claude</span>
-        </SettingRow>
       </Section>
 
-      <button
-        onClick={save}
-        disabled={saving}
-        className="w-full py-3 rounded-xl font-medium text-white transition-all active:scale-95 disabled:opacity-50 mt-2"
-        style={{ background: saved ? "var(--sage)" : "var(--terracotta)" }}
-      >
+      <button onClick={save} disabled={saving}
+        className="w-full py-3 rounded-xl font-medium text-white transition-all active:scale-95 disabled:opacity-50 mt-2 mb-6"
+        style={{ background: saved ? "var(--sage)" : "var(--terracotta)" }}>
         {saved ? "✓ Sauvegardé !" : saving ? "Sauvegarde..." : "Sauvegarder"}
       </button>
     </div>
@@ -149,8 +172,8 @@ export default function ReglagesPage() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="mb-6">
-      <h2 className="text-sm font-semibold mb-3" style={{ color: "var(--muted-foreground)" }}>{title}</h2>
+    <div className="mb-5">
+      <h2 className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>{title}</h2>
       <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
         {children}
       </div>
@@ -179,15 +202,8 @@ function Stepper({ value, min, max, onChange }: { value: number; min: number; ma
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <button
-      onClick={() => onChange(!value)}
-      className="w-12 h-6 rounded-full transition-all relative"
-      style={{ background: value ? "var(--sage)" : "var(--border)" }}
-    >
-      <span
-        className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all"
-        style={{ left: value ? "calc(100% - 22px)" : "2px" }}
-      />
+    <button onClick={() => onChange(!value)} className="w-12 h-6 rounded-full transition-all relative" style={{ background: value ? "var(--sage)" : "var(--border)" }}>
+      <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all" style={{ left: value ? "calc(100% - 22px)" : "2px" }} />
     </button>
   );
 }

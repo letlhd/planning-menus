@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Lora:wght@400;500;600&display=swap");
 
 :root {
   --terracotta: #C4622D;
@@ -33,7 +32,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: "DM Sans", system-ui, sans-serif;
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
   max-width: 430px;
   margin: 0 auto;
   min-height: 100dvh;
@@ -41,7 +40,7 @@ body {
 }
 
 h1, h2, h3 {
-  font-family: "Lora", Georgia, serif;
+  font-family: var(--font-lora), Georgia, serif;
 }
 
 /* Safe area padding for iOS */

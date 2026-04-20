@@ -5,7 +5,8 @@ import { format, addDays, startOfWeek, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
 import type { PlannedMeal } from "@/types";
 import MealCard from "@/components/meals/MealCard";
-import GenerateModal from "@/components/meals/GenerateModal";
+import GenerateModal, { type GeneratedResult } from "@/components/meals/GenerateModal";
+import WeekPlanReview from "@/components/meals/WeekPlanReview";
 
 const DAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
@@ -14,6 +15,7 @@ export default function WeekPage() {
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [showGenerate, setShowGenerate] = useState(false);
+  const [generatedResults, setGeneratedResults] = useState<GeneratedResult[] | null>(null);
 
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -37,7 +39,7 @@ export default function WeekPage() {
   }
 
   const selectedDayMeals = plannedMeals.filter((pm) =>
-    isSameDay(new Date(pm.date + "T00:00:00"), selectedDay)
+    isSameDay(new Date(String(pm.date).substring(0, 10) + "T12:00:00"), selectedDay)
   );
 
   return (
@@ -49,7 +51,7 @@ export default function WeekPage() {
         {weekDays.map((day, i) => {
           const isSelected = isSameDay(day, selectedDay);
           const hasMeal = plannedMeals.some((pm) =>
-            isSameDay(new Date(pm.date + "T00:00:00"), day)
+            isSameDay(new Date(String(pm.date).substring(0, 10) + "T12:00:00"), day)
           );
           return (
             <button
@@ -104,7 +106,7 @@ export default function WeekPage() {
           <div className="grid grid-cols-7 gap-1">
             {weekDays.map((day, i) => {
               const meal = plannedMeals.find((pm) =>
-                isSameDay(new Date(pm.date + "T00:00:00"), day)
+                isSameDay(new Date(String(pm.date).substring(0, 10) + "T12:00:00"), day)
               );
               return (
                 <button
@@ -131,8 +133,19 @@ export default function WeekPage() {
         ✨
       </button>
 
-      {showGenerate && (
-        <GenerateModal onClose={() => setShowGenerate(false)} onGenerated={fetchMeals} />
+      {showGenerate && !generatedResults && (
+        <GenerateModal
+          onClose={() => setShowGenerate(false)}
+          onGenerated={(results) => { setGeneratedResults(results); }}
+        />
+      )}
+
+      {generatedResults && (
+        <WeekPlanReview
+          results={generatedResults}
+          onDone={() => { setGeneratedResults(null); setShowGenerate(false); fetchMeals(); }}
+          onClose={() => { setGeneratedResults(null); setShowGenerate(false); }}
+        />
       )}
     </div>
   );

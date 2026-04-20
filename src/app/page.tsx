@@ -5,13 +5,15 @@ import { format, isToday, isTomorrow } from "date-fns";
 import { fr } from "date-fns/locale";
 import type { PlannedMeal } from "@/types";
 import MealCard from "@/components/meals/MealCard";
-import GenerateModal from "@/components/meals/GenerateModal";
+import GenerateModal, { type GeneratedResult } from "@/components/meals/GenerateModal";
+import WeekPlanReview from "@/components/meals/WeekPlanReview";
 
 export default function TodayPage() {
   const [todayMeals, setTodayMeals] = useState<PlannedMeal[]>([]);
   const [weekMeals, setWeekMeals] = useState<PlannedMeal[]>([]);
   const [loading, setLoading] = useState(true);
   const [showGenerate, setShowGenerate] = useState(false);
+  const [generatedResults, setGeneratedResults] = useState<GeneratedResult[] | null>(null);
 
   const today = new Date();
   const formattedDate = format(today, "EEEE d MMMM", { locale: fr });
@@ -81,8 +83,19 @@ export default function TodayPage() {
         ✨
       </button>
 
-      {showGenerate && (
-        <GenerateModal onClose={() => setShowGenerate(false)} onGenerated={fetchMeals} />
+      {showGenerate && !generatedResults && (
+        <GenerateModal
+          onClose={() => setShowGenerate(false)}
+          onGenerated={(results) => { setGeneratedResults(results); }}
+        />
+      )}
+
+      {generatedResults && (
+        <WeekPlanReview
+          results={generatedResults}
+          onDone={() => { setGeneratedResults(null); setShowGenerate(false); fetchMeals(); }}
+          onClose={() => { setGeneratedResults(null); setShowGenerate(false); }}
+        />
       )}
     </div>
   );
@@ -108,7 +121,7 @@ function EmptyDay({ onGenerate }: { onGenerate: () => void }) {
 }
 
 function WeekPreviewRow({ plannedMeal: pm }: { plannedMeal: PlannedMeal }) {
-  const date = new Date(pm.date + "T00:00:00");
+  const date = new Date(String(pm.date).substring(0, 10) + "T12:00:00");
   let dayLabel = format(date, "EEEE", { locale: fr });
   if (isToday(date)) dayLabel = "Aujourd'hui";
   if (isTomorrow(date)) dayLabel = "Demain";

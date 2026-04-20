@@ -119,6 +119,9 @@ export interface Settings {
   defaultBudget: Budget;
   defaultAmbiance: Ambiance;
   vegetarianOverride: boolean;
+  vegetarianEvening: boolean;
+  funDays: number[];
+  noLunchDays: number[];
   maxPrepTime?: number;
   dbRatio: number;
   weeklyBudgetGoal?: number;
