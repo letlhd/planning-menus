@@ -14,6 +14,7 @@ const STATUS_CONFIG = {
 export default function MealCard({ plannedMeal: pm, onUpdate }: { plannedMeal: PlannedMeal; onUpdate: () => void }) {
   const [showRecipe, setShowRecipe] = useState(false);
   const [rating, setRating] = useState(pm.rating ?? 0);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   async function markCooked() {
     await fetch(`/api/planned-meals/${pm.id}`, {
@@ -31,6 +32,11 @@ export default function MealCard({ plannedMeal: pm, onUpdate }: { plannedMeal: P
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ rating: r, status: "COOKED" }),
     });
+    onUpdate();
+  }
+
+  async function cancelMeal() {
+    await fetch(`/api/planned-meals/${pm.id}`, { method: "DELETE" });
     onUpdate();
   }
 
@@ -77,7 +83,38 @@ export default function MealCard({ plannedMeal: pm, onUpdate }: { plannedMeal: P
               ✓ Cuisiné
             </button>
           )}
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="w-9 h-9 rounded-xl flex items-center justify-center transition-all active:scale-95 shrink-0"
+            style={{ background: "var(--muted)", color: "var(--muted-foreground)" }}
+            aria-label="Annuler ce repas"
+          >
+            🗑
+          </button>
         </div>
+
+        {/* Confirmation suppression */}
+        {confirmDelete && (
+          <div className="mt-3 p-3 rounded-xl flex items-center justify-between gap-3" style={{ background: "var(--muted)", border: "1px solid var(--border)" }}>
+            <span className="text-sm" style={{ color: "var(--muted-foreground)" }}>Supprimer ce repas ?</span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                style={{ background: "var(--card)", color: "var(--foreground)", border: "1px solid var(--border)" }}
+              >
+                Non
+              </button>
+              <button
+                onClick={cancelMeal}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+                style={{ background: "#e05252" }}
+              >
+                Oui, supprimer
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Rating si cuisiné */}
         {pm.status === "COOKED" && (

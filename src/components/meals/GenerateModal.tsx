@@ -70,7 +70,7 @@ export default function GenerateModal({ onClose, onGenerated }: GenerateModalPro
           dayLabel: `${DAY_FR[dayOfWeek]} ${format(day, "d MMM", { locale: fr })}`,
           ambiance: isFunDay ? "FUN" : s.defaultAmbiance,
           budget: s.defaultBudget,
-          vegetarian: s.vegetarianEvening ?? s.vegetarianOverride,
+          vegetarian: Boolean(s.vegetarianEvening),
           adults: s.adultsCount,
           children: s.childrenCount,
           enabled: true,
@@ -85,7 +85,7 @@ export default function GenerateModal({ onClose, onGenerated }: GenerateModalPro
             dayLabel: `${DAY_FR[dayOfWeek]} ${format(day, "d MMM", { locale: fr })}`,
             ambiance: s.defaultAmbiance,
             budget: s.defaultBudget,
-            vegetarian: s.vegetarianOverride,
+            vegetarian: Boolean(s.vegetarianOverride),
             adults: s.adultsCount,
             children: s.childrenCount,
             enabled: true,
@@ -151,7 +151,7 @@ export default function GenerateModal({ onClose, onGenerated }: GenerateModalPro
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end"
+      className="fixed inset-0 z-[60] flex items-end"
       style={{ background: "rgba(0,0,0,0.6)" }}
       onClick={onClose}
     >

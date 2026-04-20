@@ -103,7 +103,7 @@ export default function WeekPlanReview({ results, onDone, onClose }: WeekPlanRev
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: "var(--background)" }}>
+    <div className="fixed inset-0 z-[60] flex flex-col" style={{ background: "var(--background)" }}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
         <button onClick={onClose} className="text-sm" style={{ color: "var(--muted-foreground)" }}>
