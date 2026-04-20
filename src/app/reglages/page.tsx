@@ -29,14 +29,18 @@ const DAYS = [
 export default function ReglagesPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     fetch("/api/settings")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((d: Settings) => { setSettings(d); setLoading(false); })
-      .catch(() => setLoading(false));
+      .catch((e) => { console.error("[Réglages]", e); setError(true); setLoading(false); });
   }, []);
 
   async function save() {
@@ -59,8 +63,27 @@ export default function ReglagesPage() {
     return arr.includes(day) ? arr.filter((d) => d !== day) : [...arr, day];
   }
 
-  if (loading || !settings) {
+  if (loading) {
     return <div className="px-4 pt-6"><div className="skeleton h-64 w-full rounded-2xl" /></div>;
+  }
+
+  if (error || !settings) {
+    return (
+      <div className="px-4 pt-6 text-center py-16">
+        <p className="text-3xl mb-3">⚙️</p>
+        <p className="font-medium mb-1">Impossible de charger les réglages</p>
+        <p className="text-sm mb-4" style={{ color: "var(--muted-foreground)" }}>
+          Redémarre le serveur de développement puis réessaie.
+        </p>
+        <button
+          onClick={() => { setError(false); setLoading(true); fetch("/api/settings").then((r) => r.json()).then((d: Settings) => { setSettings(d); setLoading(false); }).catch(() => { setError(true); setLoading(false); }); }}
+          className="px-4 py-2 rounded-xl text-sm font-medium text-white"
+          style={{ background: "var(--terracotta)" }}
+        >
+          Réessayer
+        </button>
+      </div>
+    );
   }
 
   return (
