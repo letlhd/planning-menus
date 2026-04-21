@@ -52,24 +52,31 @@ export async function POST(req: NextRequest) {
 
   const budgetFilter = params.budget === "CHEAP" ? { budget: "CHEAP" as const } : {};
 
-  const useDB = Math.random() < dbRatio;
+  // ─── Nouvelle logique isFamiliar ─────────────────────────────────
+  // dbRatio = probabilité de choisir un repas familier (connu)
+  // 1 - dbRatio = probabilité de choisir une recette élaborée / nouvelle
+  const useFamiliar = Math.random() < dbRatio;
+  const baseFilter = { ...foodModeFilter, ...seasonFilter, ...budgetFilter, name: { notIn: excludeNames } };
 
-  if (useDB) {
+  // 1. Essayer les repas familiers (BDD connue)
+  if (useFamiliar) {
     const meal = await prisma.meal.findFirst({
-      where: {
-        ...foodModeFilter,
-        ...seasonFilter,
-        ...budgetFilter,
-        name: { notIn: excludeNames },
-      },
+      where: { ...baseFilter, isFamiliar: true },
       include: { recipe: true },
       orderBy: { usageScore: "asc" },
     });
-
     if (meal) return NextResponse.json(meal);
   }
 
-  // Fallback Claude
+  // 2. Essayer les recettes élaborées en BDD (blogs)
+  const novelMeal = await prisma.meal.findFirst({
+    where: { ...baseFilter, isFamiliar: false },
+    include: { recipe: true },
+    orderBy: { usageScore: "asc" },
+  });
+  if (novelMeal) return NextResponse.json(novelMeal);
+
+  // 3. Générer avec Claude (vraiment nouveau)
   if (process.env.ANTHROPIC_API_KEY) {
     try {
       const [meal] = await generateMealSuggestions({
@@ -87,7 +94,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Fallback ultime
+  // 4. Fallback ultime : n'importe quel repas en BDD
   const fallback = await prisma.meal.findFirst({
     where: { name: { notIn: excludeNames } },
     include: { recipe: true },

@@ -166,8 +166,13 @@ export default function RecettesPage() {
             >
               <span className="text-2xl shrink-0">{mealEmoji(meal)}</span>
               <div className="flex-1 min-w-0">
-                <span className="font-medium text-sm truncate block">{meal.name}</span>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="font-medium text-sm truncate">{meal.name}</span>
+                  {!meal.isFamiliar && (
+                    <span className="text-[9px] font-bold px-1 py-0.5 rounded shrink-0" style={{ background: "var(--gold)", color: "white" }}>✨ Nouveau</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   {/* Badges foodModes (multi) */}
                   {(meal.foodModes?.length ? meal.foodModes : [meal.foodMode]).map((mode) => (
                     <span

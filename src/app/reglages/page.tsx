@@ -196,13 +196,13 @@ export default function ReglagesPage() {
 
       {/* Avancé */}
       <Section title="⚙️ Avancé">
-        <SettingRow label={`Ratio BDD / Claude (${Math.round(settings.dbRatio * 100)}%)`}>
+        <SettingRow label={`Familier ${Math.round(settings.dbRatio * 100)}% · Nouveau ${100 - Math.round(settings.dbRatio * 100)}%`}>
           <div className="flex items-center gap-2">
-            <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>BDD</span>
+            <span className="text-xs">🏠</span>
             <input type="range" min={0} max={100} value={Math.round(settings.dbRatio * 100)}
               onChange={(e) => setSettings({ ...settings, dbRatio: parseInt(e.target.value) / 100 })}
               className="w-24" style={{ accentColor: "var(--terracotta)" }} />
-            <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>Claude</span>
+            <span className="text-xs">✨</span>
           </div>
         </SettingRow>
       </Section>

@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { format, addDays, addWeeks, startOfWeek, isSameDay, isSameWeek } from "date-fns";
+import { format, addDays, addWeeks, startOfWeek, isSameDay } from "date-fns";
 import { fr } from "date-fns/locale";
 import type { PlannedMeal } from "@/types";
 import MealCard from "@/components/meals/MealCard";
-import { mealEmoji } from "@/components/meals/MealPickerSheet";
 import GenerateModal, { type GeneratedResult } from "@/components/meals/GenerateModal";
 import WeekPlanReview from "@/components/meals/WeekPlanReview";
+import { mealEmoji } from "@/components/meals/MealPickerSheet";
 
 const DAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
@@ -22,26 +22,22 @@ export default function WeekPage() {
   const baseWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const weekStart = addWeeks(baseWeekStart, weekOffset);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const weekEnd = addDays(weekStart, 6);
 
-  const isCurrentWeek = weekOffset === 0;
-  const weekLabel = `${format(weekStart, "d MMM", { locale: fr })} – ${format(weekEnd, "d MMM", { locale: fr })}`;
+  // Quand la semaine change, sélectionner le lundi de cette semaine
+  useEffect(() => {
+    setSelectedDay(weekStart);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekOffset]);
 
   useEffect(() => {
-    // Quand on change de semaine, sélectionner le lundi de la semaine affichée
-    // (ou aujourd'hui si c'est la semaine courante)
-    if (weekOffset === 0) {
-      setSelectedDay(new Date());
-    } else {
-      setSelectedDay(weekStart);
-    }
     fetchMeals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekOffset]);
 
   async function fetchMeals() {
     setLoading(true);
     try {
-      const start = format(addWeeks(baseWeekStart, weekOffset), "yyyy-MM-dd");
+      const start = format(weekStart, "yyyy-MM-dd");
       const res = await fetch(`/api/planned-meals?weekStart=${start}`);
       if (!res.ok) throw new Error();
       setPlannedMeals(await res.json());
@@ -54,85 +50,69 @@ export default function WeekPage() {
 
   const selectedDayMeals = plannedMeals
     .filter((pm) => isSameDay(new Date(String(pm.date).substring(0, 10) + "T12:00:00"), selectedDay))
-    .sort((a, b) => a.mealType === "LUNCH" ? -1 : 1);
+    .sort((a, b) => (a.mealType === "LUNCH" ? -1 : 1));
+
+  const weekLabel = weekOffset === 0 ? "Cette semaine" : weekOffset === 1 ? "Semaine prochaine" : weekOffset === -1 ? "Semaine dernière" : `Semaine du ${format(weekStart, "d MMM", { locale: fr })}`;
 
   return (
-    <div className="px-4 pt-4">
-
-      {/* Header semaine avec navigation */}
+    <div className="px-4 pt-5 pb-4">
+      {/* Header avec navigation de semaine */}
       <div className="flex items-center justify-between mb-4">
         <button
           onClick={() => setWeekOffset((o) => o - 1)}
-          className="w-9 h-9 rounded-xl flex items-center justify-center text-lg transition-all active:scale-90"
-          style={{ background: "var(--muted)", color: "var(--muted-foreground)" }}
-          aria-label="Semaine précédente"
+          className="w-9 h-9 rounded-xl flex items-center justify-center text-xl transition-all active:scale-90"
+          style={{ background: "var(--muted)", color: "var(--foreground)" }}
         >
-          ‹
+          ←
         </button>
-
         <div className="text-center">
-          <p className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>
-            {isCurrentWeek ? "Cette semaine" : weekOffset === -1 ? "Semaine dernière" : weekOffset === 1 ? "Semaine prochaine" : `S${weekOffset > 0 ? "+" : ""}${weekOffset}`}
+          <h1 className="text-base font-semibold">{weekLabel}</h1>
+          <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+            {format(weekStart, "d MMM", { locale: fr })} — {format(addDays(weekStart, 6), "d MMM", { locale: fr })}
           </p>
-          <p className="text-sm font-semibold">{weekLabel}</p>
         </div>
-
         <button
           onClick={() => setWeekOffset((o) => o + 1)}
-          className="w-9 h-9 rounded-xl flex items-center justify-center text-lg transition-all active:scale-90"
-          style={{ background: "var(--muted)", color: "var(--muted-foreground)" }}
-          aria-label="Semaine suivante"
+          className="w-9 h-9 rounded-xl flex items-center justify-center text-xl transition-all active:scale-90"
+          style={{ background: "var(--muted)", color: "var(--foreground)" }}
         >
-          ›
+          →
         </button>
       </div>
 
-      {/* Bouton Générer la semaine */}
-      <button
-        onClick={() => setShowGenerate(true)}
-        className="w-full py-3 rounded-xl font-medium text-white mb-4 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-        style={{ background: "var(--terracotta)" }}
-      >
-        <span>✨</span>
-        <span>Générer la semaine</span>
-      </button>
-
       {/* Calendrier horizontal */}
-      <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-2 mb-4">
+      <div className="flex gap-1.5 pb-2 mb-4">
         {weekDays.map((day, i) => {
           const isSelected = isSameDay(day, selectedDay);
-          const isToday = isSameDay(day, new Date());
-          const hasMeal = plannedMeals.some((pm) =>
+          const dayMeals = plannedMeals.filter((pm) =>
             isSameDay(new Date(String(pm.date).substring(0, 10) + "T12:00:00"), day)
           );
+          const hasLunch = dayMeals.some((pm) => pm.mealType === "LUNCH");
+          const hasDinner = dayMeals.some((pm) => pm.mealType === "DINNER");
           return (
             <button
               key={i}
               onClick={() => setSelectedDay(day)}
-              className="flex flex-col items-center gap-0.5 min-w-[42px] py-2 rounded-xl transition-all"
+              className="flex flex-col items-center gap-0.5 flex-1 p-1.5 rounded-xl transition-all"
               style={{
                 background: isSelected ? "var(--terracotta)" : "var(--muted)",
                 color: isSelected ? "white" : "var(--foreground)",
               }}
             >
-              <span className="text-[10px] font-medium" style={{ color: isSelected ? "rgba(255,255,255,0.8)" : "var(--muted-foreground)" }}>
-                {DAY_LABELS[i]}
-              </span>
-              <span className="text-base font-semibold leading-none">{format(day, "d")}</span>
-              {isToday && (
-                <span className="w-1 h-1 rounded-full mt-0.5" style={{ background: isSelected ? "white" : "var(--terracotta)" }} />
-              )}
-              {!isToday && (
-                <span className="w-1 h-1 rounded-full mt-0.5" style={{ background: hasMeal ? (isSelected ? "rgba(255,255,255,0.6)" : "var(--terracotta)") : "transparent" }} />
-              )}
+              <span className="text-[9px] font-medium">{DAY_LABELS[i]}</span>
+              <span className="text-sm font-semibold">{format(day, "d")}</span>
+              <div className="flex gap-0.5">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: hasLunch ? (isSelected ? "rgba(255,255,255,0.7)" : "var(--gold)") : "transparent" }} />
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: hasDinner ? (isSelected ? "white" : "var(--terracotta)") : "transparent" }} />
+              </div>
             </button>
           );
         })}
       </div>
 
       {/* Repas du jour sélectionné */}
-      <section className="mb-6">
-        <h2 className="text-base font-semibold mb-3 capitalize">
+      <section className="mb-5">
+        <h2 className="text-base font-medium capitalize mb-3">
           {format(selectedDay, "EEEE d MMMM", { locale: fr })}
         </h2>
         {loading ? (
@@ -144,62 +124,71 @@ export default function WeekPage() {
             ))}
           </div>
         ) : (
-          <div className="rounded-2xl p-5 text-center" style={{ background: "var(--muted)" }}>
-            <p className="text-2xl mb-1">📅</p>
-            <p className="text-sm font-medium mb-0.5">Aucun repas prévu</p>
-            <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-              Génère la semaine ou choisis un repas ci-dessus
+          <div className="rounded-2xl p-6 text-center" style={{ background: "var(--muted)" }}>
+            <p className="text-3xl mb-2">📅</p>
+            <p className="font-medium mb-1">Aucun repas prévu</p>
+            <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
+              Génère la semaine ou ajoute un repas
             </p>
           </div>
         )}
       </section>
 
-      {/* Vue d'ensemble de la semaine sélectionnée */}
-      {plannedMeals.length > 0 && (
-        <section className="mb-6">
+      {/* Vue d'ensemble */}
+      {(plannedMeals.length > 0 || !loading) && (
+        <section className="mb-5">
           <h2 className="text-sm font-semibold mb-2 uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>
-            Vue d&apos;ensemble
+            Vue d'ensemble
           </h2>
           <div className="space-y-1">
             {weekDays.map((day, i) => {
+              const dayMeals = plannedMeals
+                .filter((pm) => isSameDay(new Date(String(pm.date).substring(0, 10) + "T12:00:00"), day))
+                .sort((a, b) => (a.mealType === "LUNCH" ? -1 : 1));
+              const isToday = isSameDay(day, new Date());
               const isSelected = isSameDay(day, selectedDay);
-              const lunch = plannedMeals.find((pm) =>
-                isSameDay(new Date(String(pm.date).substring(0, 10) + "T12:00:00"), day) && pm.mealType === "LUNCH"
-              );
-              const dinner = plannedMeals.find((pm) =>
-                isSameDay(new Date(String(pm.date).substring(0, 10) + "T12:00:00"), day) && pm.mealType === "DINNER"
-              );
-              if (!lunch && !dinner) return null;
+
               return (
                 <button
                   key={i}
                   onClick={() => setSelectedDay(day)}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all active:opacity-70"
+                  className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-left transition-all active:opacity-70"
                   style={{
-                    background: isSelected ? "var(--terracotta)" : "var(--card)",
+                    background: isSelected ? "var(--muted)" : "var(--card)",
                     border: `1px solid ${isSelected ? "var(--terracotta)" : "var(--border)"}`,
                   }}
                 >
-                  <span
-                    className="text-xs font-bold w-7 shrink-0"
-                    style={{ color: isSelected ? "white" : "var(--muted-foreground)" }}
-                  >
-                    {DAY_LABELS[i]}
-                  </span>
-                  <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                    {lunch && (
-                      <span className="text-xs flex items-center gap-1 truncate" style={{ color: isSelected ? "white" : "var(--foreground)" }}>
-                        <span className="text-sm">{mealEmoji(lunch.meal)}</span>
-                        <span className="text-[9px] font-bold px-1 rounded shrink-0" style={{ background: isSelected ? "rgba(255,255,255,0.25)" : "var(--gold)", color: "white" }}>Déj</span>
-                        <span className="truncate">{lunch.meal.name}</span>
-                      </span>
-                    )}
-                    {dinner && (
-                      <span className="text-xs flex items-center gap-1 truncate" style={{ color: isSelected ? "rgba(255,255,255,0.85)" : "var(--muted-foreground)" }}>
-                        <span className="text-sm">{mealEmoji(dinner.meal)}</span>
-                        <span className="text-[9px] font-bold px-1 rounded shrink-0" style={{ background: isSelected ? "rgba(255,255,255,0.25)" : "var(--terracotta)", color: "white" }}>Dîn</span>
-                        <span className="truncate">{dinner.meal.name}</span>
-                      </span>
+                  {/* Jour */}
+                  <div className="shrink-0 w-10 text-center">
+                    <p className="text-[10px] font-medium" style={{ color: "var(--muted-foreground)" }}>{DAY_LABELS[i]}</p>
+                    <p className={`text-sm font-bold ${isToday ? "text-white" : ""}`}
+                      style={isToday ? { background: "var(--terracotta)", borderRadius: "50%", width: 22, height: 22, lineHeight: "22px", margin: "0 auto" } : {}}>
+                      {format(day, "d")}
+                    </p>
+                  </div>
+
+                  {/* Repas */}
+                  <div className="flex-1 min-w-0">
+                    {dayMeals.length === 0 ? (
+                      <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>—</p>
+                    ) : (
+                      <div className="space-y-0.5">
+                        {dayMeals.map((pm) => (
+                          <div key={pm.id} className="flex items-center gap-1.5">
+                            <span
+                              className="text-[9px] font-bold px-1 py-0.5 rounded shrink-0"
+                              style={{
+                                background: pm.mealType === "LUNCH" ? "var(--gold)" : "var(--terracotta)",
+                                color: "white",
+                              }}
+                            >
+                              {pm.mealType === "LUNCH" ? "Déj" : "Dîn"}
+                            </span>
+                            <span className="text-sm shrink-0">{mealEmoji(pm.meal)}</span>
+                            <span className="text-xs truncate">{pm.meal.name}</span>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
                 </button>
@@ -208,6 +197,15 @@ export default function WeekPage() {
           </div>
         </section>
       )}
+
+      {/* Bouton Générer la semaine */}
+      <button
+        onClick={() => setShowGenerate(true)}
+        className="w-full py-3 rounded-xl font-medium text-white transition-all active:scale-95"
+        style={{ background: "var(--terracotta)" }}
+      >
+        ✨ Générer la semaine
+      </button>
 
       {showGenerate && !generatedResults && (
         <GenerateModal

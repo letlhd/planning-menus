@@ -57,6 +57,7 @@ export interface Meal {
   ratingCount: number;
   sourceBlog?: string;
   sourceUrl?: string;
+  isFamiliar: boolean;
   isCustom: boolean;
   createdAt: string;
   updatedAt: string;

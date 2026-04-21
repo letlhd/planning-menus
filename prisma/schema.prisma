@@ -32,6 +32,7 @@ model Meal {
   ratingCount   Int       @default(0)
   sourceBlog    String?
   sourceUrl     String?
+  isFamiliar    Boolean   @default(false)
   isCustom      Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
