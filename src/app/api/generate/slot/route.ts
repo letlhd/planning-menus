@@ -11,6 +11,8 @@ const SlotSchema = z.object({
   budget: z.enum(["CHEAP", "NORMAL", "SPLURGE"]).default("NORMAL"),
   mealType: z.enum(["LUNCH", "DINNER"]).default("DINNER"),
   exclude: z.array(z.string()).default([]),
+  maxTotalTime: z.number().int().optional(),
+  minTotalTime: z.number().int().optional(),
 });
 
 function currentSeasonPref(): "SUMMER" | "WINTER" {
@@ -70,21 +72,31 @@ export async function POST(req: NextRequest) {
     return arr[Math.floor(Math.random() * arr.length)];
   }
 
+  type MealWithRecipe = { prepTime: number; cookTime: number };
+  function filterByTime<T extends MealWithRecipe>(arr: T[]): T[] {
+    return arr.filter((m) => {
+      const total = m.prepTime + m.cookTime;
+      if (params.maxTotalTime !== undefined && total > params.maxTotalTime) return false;
+      if (params.minTotalTime !== undefined && total < params.minTotalTime) return false;
+      return true;
+    });
+  }
+
   // 1. Essayer les repas familiers (BDD connue)
   if (useFamiliar) {
-    const meals = await prisma.meal.findMany({
+    const meals = filterByTime(await prisma.meal.findMany({
       where: { ...baseFilter, isFamiliar: true },
       include: { recipe: true },
-    });
+    }));
     const meal = pickRandom(meals);
     if (meal) return NextResponse.json(meal);
   }
 
   // 2. Essayer les recettes élaborées en BDD (blogs)
-  const novelMeals = await prisma.meal.findMany({
+  const novelMeals = filterByTime(await prisma.meal.findMany({
     where: { ...baseFilter, isFamiliar: false },
     include: { recipe: true },
-  });
+  }));
   const novelMeal = pickRandom(novelMeals);
   if (novelMeal) return NextResponse.json(novelMeal);
 
