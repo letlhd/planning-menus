@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { format, addDays, startOfWeek } from "date-fns";
+import { format, addDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import type { Settings, FoodMode, SeasonPref, MealType, PlannedMeal } from "@/types";
 
@@ -51,9 +51,8 @@ const BUDGET_OPTIONS = [
   { value: "SPLURGE", label: "€€€" },
 ];
 
-function autoSeasonPref(): SeasonPref {
-  const month = new Date().getMonth(); // 0-11
-  return month >= 3 && month <= 8 ? "SUMMER" : "WINTER";
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
 }
 
 export default function GenerateModal({ onClose, onGenerated }: GenerateModalProps) {
@@ -61,53 +60,73 @@ export default function GenerateModal({ onClose, onGenerated }: GenerateModalPro
   const [loading, setLoading] = useState(false);
   const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
 
-  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const today = new Date();
+  const nowHour = today.getHours();
 
   useEffect(() => {
     async function init() {
-      const [sRes, pRes] = await Promise.all([
+      // Fetch planned meals for today + next 8 days (spans at most 2 weeks)
+      const todayStr = format(today, "yyyy-MM-dd");
+      const endDate = addDays(today, 8);
+      const endStr = format(endDate, "yyyy-MM-dd");
+
+      const [sRes, pRes1, pRes2] = await Promise.all([
         fetch("/api/settings"),
-        fetch(`/api/planned-meals?weekStart=${format(weekStart, "yyyy-MM-dd")}`),
+        fetch(`/api/planned-meals?weekStart=${todayStr}`),
+        fetch(`/api/planned-meals?weekStart=${format(addDays(today, 7), "yyyy-MM-dd")}`),
       ]);
       const s: Settings = await sRes.json();
-      const planned: PlannedMeal[] = await pRes.json();
+      const planned1: PlannedMeal[] = await pRes1.json();
+      const planned2: PlannedMeal[] = await pRes2.json();
+      const planned = [...planned1, ...planned2];
 
       const plannedKeys = new Set(
         planned.map((pm) => `${String(pm.date).substring(0, 10)}_${pm.mealType}`)
       );
 
-      const season = autoSeasonPref();
+      void endStr; // used implicitly via loop
+
+      const lunchModes: FoodMode[] = (s.defaultFoodModes as FoodMode[]) ?? ["MEAT"];
+      const dinnerModes: FoodMode[] = (s.defaultDinnerFoodModes as FoodMode[]) ?? ["VEGETARIAN"];
+
       const newSlots: SlotConfig[] = [];
 
-      for (let i = 0; i < 7; i++) {
-        const day = addDays(weekStart, i);
+      for (let i = 0; i < 9; i++) {
+        const day = addDays(today, i);
         const dayOfWeek = day.getDay();
         const dateStr = format(day, "yyyy-MM-dd");
         const isFestiveDay = (s.festiveDays ?? [5, 6, 0]).includes(dayOfWeek);
         const isNoLunchDay = (s.noLunchDays ?? [1, 2, 4, 5]).includes(dayOfWeek);
 
+        // Skip today's lunch if past 12h, skip today's dinner if past 19h
+        const isToday = i === 0;
+        const skipLunch = isToday && nowHour >= 12;
+        const skipDinner = isToday && nowHour >= 19;
+
         // Dîner
-        newSlots.push({
-          date: dateStr,
-          mealType: "DINNER",
-          dayLabel: `${DAY_FR[dayOfWeek]} ${format(day, "d MMM", { locale: fr })}`,
-          foodMode: isFestiveDay ? "FESTIVE" : s.defaultDinnerFoodMode ?? "VEGETARIAN",
-          seasonPref: season,
-          budget: s.defaultBudget ?? "NORMAL",
-          adults: s.adultsCount ?? 2,
-          children: s.childrenCount ?? 2,
-          enabled: true,
-          alreadyPlanned: plannedKeys.has(`${dateStr}_DINNER`),
-        });
+        if (!skipDinner) {
+          newSlots.push({
+            date: dateStr,
+            mealType: "DINNER",
+            dayLabel: `${DAY_FR[dayOfWeek]} ${format(day, "d MMM", { locale: fr })}`,
+            foodMode: isFestiveDay ? "FESTIVE" : pickRandom(dinnerModes),
+            seasonPref: "ALL_YEAR",
+            budget: s.defaultBudget ?? "NORMAL",
+            adults: s.adultsCount ?? 2,
+            children: s.childrenCount ?? 2,
+            enabled: true,
+            alreadyPlanned: plannedKeys.has(`${dateStr}_DINNER`),
+          });
+        }
 
         // Déjeuner
-        if (!isNoLunchDay) {
+        if (!isNoLunchDay && !skipLunch) {
           newSlots.push({
             date: dateStr,
             mealType: "LUNCH",
             dayLabel: `${DAY_FR[dayOfWeek]} ${format(day, "d MMM", { locale: fr })}`,
-            foodMode: s.defaultFoodMode ?? "MEAT",
-            seasonPref: season,
+            foodMode: pickRandom(lunchModes),
+            seasonPref: "ALL_YEAR",
             budget: s.defaultBudget ?? "NORMAL",
             adults: s.adultsCount ?? 2,
             children: s.childrenCount ?? 2,
@@ -125,6 +144,7 @@ export default function GenerateModal({ onClose, onGenerated }: GenerateModalPro
       setSlots(newSlots);
     }
     init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function slotKey(s: SlotConfig) { return `${s.date}_${s.mealType}`; }
@@ -138,26 +158,29 @@ export default function GenerateModal({ onClose, onGenerated }: GenerateModalPro
     const toGenerate = slots.filter((s) => s.enabled && !s.alreadyPlanned);
     try {
       const results: GeneratedResult[] = [];
-      await Promise.all(
-        toGenerate.map(async (slot) => {
-          const res = await fetch("/api/generate/slot", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              adults: slot.adults,
-              children: slot.children,
-              foodMode: slot.foodMode,
-              seasonPref: slot.seasonPref,
-              budget: slot.budget,
-              mealType: slot.mealType,
-            }),
-          });
-          if (res.ok) {
-            const meal = await res.json();
-            results.push({ date: slot.date, mealType: slot.mealType, meal });
-          }
-        })
-      );
+      const excludeNames: string[] = [];
+
+      // Sequential generation to avoid duplicates
+      for (const slot of toGenerate) {
+        const res = await fetch("/api/generate/slot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            adults: slot.adults,
+            children: slot.children,
+            foodMode: slot.foodMode,
+            seasonPref: slot.seasonPref,
+            budget: slot.budget,
+            mealType: slot.mealType,
+            exclude: excludeNames,
+          }),
+        });
+        if (res.ok) {
+          const meal = await res.json();
+          results.push({ date: slot.date, mealType: slot.mealType, meal });
+          if (meal?.name) excludeNames.push(meal.name as string);
+        }
+      }
       onGenerated(results);
     } finally {
       setLoading(false);

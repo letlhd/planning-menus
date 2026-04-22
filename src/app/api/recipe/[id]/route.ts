@@ -54,7 +54,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
       steps: generated.steps,
       tips: generated.tips,
       variations: generated.variations,
-      nutritionEstimate: generated.nutritionEstimate ?? null,
+      nutritionEstimate: generated.nutritionEstimate ?? undefined,
       generatedByAI: true,
       tokenCost: generated.tokenCost,
     },

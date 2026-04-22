@@ -38,19 +38,26 @@ export async function POST(req: NextRequest) {
       : params.foodMode === "FISH"
       ? { OR: [{ foodModes: { has: "FISH" as const } }, { foodMode: "FISH" as const }, { isFish: true }] }
       : params.foodMode === "FESTIVE"
-      ? { OR: [{ foodModes: { has: "FESTIVE" as const } }, { foodMode: "FESTIVE" as const }, { tags: { hasSome: ["festif", "fête", "fun", "convivial", "festive"] } }] }
+      ? { OR: [{ foodModes: { has: "FESTIVE" as const } }, { foodMode: "FESTIVE" as const }] }
       : params.foodMode === "RECEPTION"
       ? { OR: [{ foodModes: { has: "RECEPTION" as const } }, { foodMode: "RECEPTION" as const }] }
       : {}; // MEAT : pas de filtre spécifique
 
-  // Filtre saison — auto si non précisé
-  const season = params.seasonPref === "ALL_YEAR" ? currentSeasonPref() : params.seasonPref;
+  // Filtre saison — ALL_YEAR = pas de filtre
   const seasonFilter =
-    season === "SUMMER"
+    params.seasonPref === "ALL_YEAR"
+      ? {}
+      : params.seasonPref === "SUMMER"
       ? { season: { hasSome: ["SUMMER", "SPRING", "ALL_YEAR"] as never[] } }
       : { season: { hasSome: ["WINTER", "AUTUMN", "ALL_YEAR"] as never[] } };
 
-  const budgetFilter = params.budget === "CHEAP" ? { budget: "CHEAP" as const } : {};
+  // Budget cascade: CHEAP=seulement CHEAP, NORMAL=CHEAP+NORMAL, SPLURGE=tout
+  const budgetFilter =
+    params.budget === "CHEAP"
+      ? { budget: "CHEAP" as const }
+      : params.budget === "NORMAL"
+      ? { budget: { in: ["CHEAP" as const, "NORMAL" as const] } }
+      : {};
 
   // ─── Nouvelle logique isFamiliar ─────────────────────────────────
   // dbRatio = probabilité de choisir un repas familier (connu)
@@ -58,22 +65,27 @@ export async function POST(req: NextRequest) {
   const useFamiliar = Math.random() < dbRatio;
   const baseFilter = { ...foodModeFilter, ...seasonFilter, ...budgetFilter, name: { notIn: excludeNames } };
 
+  function pickRandom<T>(arr: T[]): T | undefined {
+    if (arr.length === 0) return undefined;
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
   // 1. Essayer les repas familiers (BDD connue)
   if (useFamiliar) {
-    const meal = await prisma.meal.findFirst({
+    const meals = await prisma.meal.findMany({
       where: { ...baseFilter, isFamiliar: true },
       include: { recipe: true },
-      orderBy: { usageScore: "asc" },
     });
+    const meal = pickRandom(meals);
     if (meal) return NextResponse.json(meal);
   }
 
   // 2. Essayer les recettes élaborées en BDD (blogs)
-  const novelMeal = await prisma.meal.findFirst({
+  const novelMeals = await prisma.meal.findMany({
     where: { ...baseFilter, isFamiliar: false },
     include: { recipe: true },
-    orderBy: { usageScore: "asc" },
   });
+  const novelMeal = pickRandom(novelMeals);
   if (novelMeal) return NextResponse.json(novelMeal);
 
   // 3. Générer avec Claude (vraiment nouveau)
@@ -95,11 +107,11 @@ export async function POST(req: NextRequest) {
   }
 
   // 4. Fallback ultime : n'importe quel repas en BDD
-  const fallback = await prisma.meal.findFirst({
+  const fallbacks = await prisma.meal.findMany({
     where: { name: { notIn: excludeNames } },
     include: { recipe: true },
-    orderBy: { usageScore: "asc" },
   });
+  const fallback = pickRandom(fallbacks);
 
   if (fallback) return NextResponse.json(fallback);
   return NextResponse.json({ error: "No meal found" }, { status: 404 });

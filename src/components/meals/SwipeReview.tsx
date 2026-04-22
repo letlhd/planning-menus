@@ -107,7 +107,7 @@ export default function SwipeReview({ meals, onDone, onClose }: SwipeReviewProps
         <AnimatePresence mode="wait">
           <motion.div
             key={currentIndex + (replacements[currentIndex] ? "-r" : "")}
-            style={{ x, rotate, opacity }}
+            style={{ x, rotate, opacity, background: "var(--card)", maxWidth: 380 } as never}
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
             onDragEnd={(_, info) => {
@@ -115,7 +115,6 @@ export default function SwipeReview({ meals, onDone, onClose }: SwipeReviewProps
               else if (info.offset.x < -100) setShowRejectReasons(true);
             }}
             className="swipe-card w-full rounded-3xl p-6 cursor-grab active:cursor-grabbing"
-            style={{ background: "var(--card)", maxWidth: 380 } as never}
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}

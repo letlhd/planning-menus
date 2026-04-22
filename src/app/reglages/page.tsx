@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import type { Settings, Budget, FoodMode } from "@/types";
 
+function toggleMode(arr: FoodMode[], mode: FoodMode): FoodMode[] {
+  return arr.includes(mode) ? arr.filter((m) => m !== mode) : [...arr, mode];
+}
+
 const BUDGET_OPTIONS: { value: Budget; label: string }[] = [
   { value: "CHEAP", label: "€ Serré" },
   { value: "NORMAL", label: "€€ Normal" },
@@ -123,29 +127,36 @@ export default function ReglagesPage() {
         </SettingRow>
 
         <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)", background: "var(--card)" }}>
-          <p className="text-sm mb-2">Mode déjeuner par défaut</p>
+          <p className="text-sm mb-1">Mode déjeuner par défaut</p>
+          <p className="text-xs mb-2" style={{ color: "var(--muted-foreground)" }}>Sélection multiple possible</p>
           <div className="grid grid-cols-4 gap-1">
-            {FOOD_MODE_OPTIONS.map(({ value, label }) => (
-              <button key={value} onClick={() => setSettings({ ...settings, defaultFoodMode: value })}
-                className="py-2 rounded-lg text-xs font-medium transition-all text-center"
-                style={{ background: settings.defaultFoodMode === value ? "var(--terracotta)" : "var(--muted)", color: settings.defaultFoodMode === value ? "white" : "var(--foreground)" }}>
-                {label}
-              </button>
-            ))}
+            {FOOD_MODE_OPTIONS.map(({ value, label }) => {
+              const active = (settings.defaultFoodModes ?? ["MEAT"]).includes(value);
+              return (
+                <button key={value} onClick={() => setSettings({ ...settings, defaultFoodModes: toggleMode(settings.defaultFoodModes ?? ["MEAT"], value) })}
+                  className="py-2 rounded-lg text-xs font-medium transition-all text-center"
+                  style={{ background: active ? "var(--terracotta)" : "var(--muted)", color: active ? "white" : "var(--foreground)" }}>
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
         <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)", background: "var(--card)" }}>
           <p className="text-sm mb-1">Mode dîner par défaut</p>
-          <p className="text-xs mb-2" style={{ color: "var(--muted-foreground)" }}>Hors soirées festives</p>
+          <p className="text-xs mb-2" style={{ color: "var(--muted-foreground)" }}>Sélection multiple · Hors soirées festives</p>
           <div className="grid grid-cols-5 gap-1">
-            {DINNER_MODE_OPTIONS.map(({ value, label }) => (
-              <button key={value} onClick={() => setSettings({ ...settings, defaultDinnerFoodMode: value })}
-                className="py-2 rounded-lg text-xs font-medium transition-all text-center"
-                style={{ background: settings.defaultDinnerFoodMode === value ? "var(--terracotta)" : "var(--muted)", color: settings.defaultDinnerFoodMode === value ? "white" : "var(--foreground)" }}>
-                {label.split(" ")[0]}
-              </button>
-            ))}
+            {DINNER_MODE_OPTIONS.map(({ value, label }) => {
+              const active = (settings.defaultDinnerFoodModes ?? ["VEGETARIAN"]).includes(value);
+              return (
+                <button key={value} onClick={() => setSettings({ ...settings, defaultDinnerFoodModes: toggleMode(settings.defaultDinnerFoodModes ?? ["VEGETARIAN"], value) })}
+                  className="py-2 rounded-lg text-xs font-medium transition-all text-center"
+                  style={{ background: active ? "var(--terracotta)" : "var(--muted)", color: active ? "white" : "var(--foreground)" }}>
+                  {label.split(" ")[0]}
+                </button>
+              );
+            })}
           </div>
         </div>
 

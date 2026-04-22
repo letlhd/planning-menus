@@ -123,8 +123,8 @@ export interface Settings {
   defaultDays: number[];
   defaultMealType: MealType;
   defaultBudget: Budget;
-  defaultFoodMode: FoodMode;
-  defaultDinnerFoodMode: FoodMode;
+  defaultFoodModes: FoodMode[];
+  defaultDinnerFoodModes: FoodMode[];
   festiveDays: number[];
   noLunchDays: number[];
   maxPrepTime?: number;

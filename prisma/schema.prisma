@@ -133,8 +133,8 @@ model Settings {
   defaultDays     Int[]    @default([1, 2, 3, 4, 5, 6, 0])
   defaultMealType MealType @default(DINNER)
   defaultBudget   Budget   @default(NORMAL)
-  defaultFoodMode       FoodMode @default(MEAT)
-  defaultDinnerFoodMode FoodMode @default(VEGETARIAN)
+  defaultFoodModes       String[] @default(["MEAT"])
+  defaultDinnerFoodModes String[] @default(["VEGETARIAN"])
   festiveDays           Int[]    @default([5, 6, 0])
   noLunchDays     Int[]    @default([1, 2, 4, 5])
   maxPrepTime     Int?
