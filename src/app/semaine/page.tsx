@@ -23,8 +23,11 @@ export default function WeekPage() {
   const weekStart = addWeeks(baseWeekStart, weekOffset);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  // Quand la semaine change, sélectionner le lundi de cette semaine
+  // Quand on navigue vers une autre semaine, sélectionner son lundi
+  // (pas au 1er render : on garde aujourd'hui par défaut)
+  const [hasNavigated, setHasNavigated] = useState(false);
   useEffect(() => {
+    if (!hasNavigated) return;
     setSelectedDay(weekStart);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekOffset]);
@@ -59,7 +62,7 @@ export default function WeekPage() {
       {/* Header avec navigation de semaine */}
       <div className="flex items-center justify-between mb-4">
         <button
-          onClick={() => setWeekOffset((o) => o - 1)}
+          onClick={() => { setHasNavigated(true); setWeekOffset((o) => o - 1); }}
           className="w-9 h-9 rounded-xl flex items-center justify-center text-xl transition-all active:scale-90"
           style={{ background: "var(--muted)", color: "var(--foreground)" }}
         >
@@ -72,7 +75,7 @@ export default function WeekPage() {
           </p>
         </div>
         <button
-          onClick={() => setWeekOffset((o) => o + 1)}
+          onClick={() => { setHasNavigated(true); setWeekOffset((o) => o + 1); }}
           className="w-9 h-9 rounded-xl flex items-center justify-center text-xl transition-all active:scale-90"
           style={{ background: "var(--muted)", color: "var(--foreground)" }}
         >

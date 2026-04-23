@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     where: { date: { gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000) } },
     select: { meal: { select: { name: true } } },
   });
-  const excludeNames = recentMeals.map((pm) => pm.meal.name);
+  const excludeNames = recentMeals.map((pm: { meal: { name: string } }) => pm.meal.name);
 
   const dbCount = Math.round(params.days * dbRatio);
   const claudeCount = params.days - dbCount;
