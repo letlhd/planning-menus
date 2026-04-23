@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     where: { date: { gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000) } },
     select: { meal: { select: { name: true } } },
   });
-  const excludeNames = [...new Set([...recentMeals.map((pm) => pm.meal.name), ...params.exclude])];
+  const excludeNames = [...new Set([...recentMeals.map((pm: { meal: { name: string } }) => pm.meal.name), ...params.exclude])];
 
   // Filtre foodMode — cherche dans foodModes[] ET foodMode (compat)
   const foodModeFilter =
