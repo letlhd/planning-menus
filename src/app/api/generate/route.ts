@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
         foodMode: params.foodMode,
         seasonPref: params.seasonPref,
         budget: params.budget,
-        exclude: [...excludeNames, ...shuffled.map((m) => m.name)],
+        exclude: [...excludeNames, ...shuffled.map((m: { name: string }) => m.name)],
       });
     } catch {
       const extra = await prisma.meal.findMany({
