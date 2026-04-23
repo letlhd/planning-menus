@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Créer ou mettre à jour la liste
-  const totalCost = plannedMeals.reduce((s, pm) => s + (pm.meal.estimatedCost ?? 0), 0);
+  const totalCost = plannedMeals.reduce((s: number, pm: { meal: { estimatedCost: number | null } }) => s + (pm.meal.estimatedCost ?? 0), 0);
 
   const list = await prisma.shoppingList.upsert({
     where: { id: `week-${weekStart}` },

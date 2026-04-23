@@ -26,7 +26,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       where: { mealId: planned.mealId, rating: { not: null } },
       select: { rating: true },
     });
-    const avg = allRatings.reduce((s, r) => s + (r.rating ?? 0), 0) / allRatings.length;
+    const avg = allRatings.reduce((s: number, r: { rating: number | null }) => s + (r.rating ?? 0), 0) / allRatings.length;
     await prisma.meal.update({
       where: { id: planned.mealId },
       data: { rating: avg, ratingCount: allRatings.length },
