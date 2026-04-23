@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       });
     } catch {
       const extra = await prisma.meal.findMany({
-        where: { name: { notIn: [...excludeNames, ...shuffled.map((m) => m.name)] } },
+        where: { name: { notIn: [...excludeNames, ...shuffled.map((m: { name: string }) => m.name)] } },
         take: claudeCount,
         orderBy: { usageScore: "asc" },
         include: { recipe: true },
