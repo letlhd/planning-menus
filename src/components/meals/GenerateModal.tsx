@@ -119,8 +119,8 @@ export default function GenerateModal({ onClose, onGenerated }: GenerateModalPro
           });
         }
 
-        // Déjeuner
-        if (!isNoLunchDay && !skipLunch) {
+        // Déjeuner — toujours affiché, mais décoché par défaut les jours sans déjeuner
+        if (!skipLunch) {
           newSlots.push({
             date: dateStr,
             mealType: "LUNCH",
@@ -130,7 +130,7 @@ export default function GenerateModal({ onClose, onGenerated }: GenerateModalPro
             budget: s.defaultBudget ?? "NORMAL",
             adults: s.adultsCount ?? 2,
             children: s.childrenCount ?? 2,
-            enabled: true,
+            enabled: !isNoLunchDay,
             alreadyPlanned: plannedKeys.has(`${dateStr}_LUNCH`),
           });
         }
