@@ -12,20 +12,13 @@ const STATUS_CONFIG = {
   SKIPPED: { emoji: "⏭️", label: "Passé" },
 };
 
-const FOOD_MODE_OPTS: { value: FoodMode; emoji: string }[] = [
-  { value: "MEAT", emoji: "🥩" },
-  { value: "FISH", emoji: "🐟" },
-  { value: "VEGETARIAN", emoji: "🥗" },
-  { value: "FESTIVE", emoji: "🎉" },
-  { value: "RECEPTION", emoji: "🥂" },
+const FOOD_MODE_OPTS: { value: FoodMode; emoji: string; label: string }[] = [
+  { value: "MEAT",       emoji: "🥩", label: "Viande" },
+  { value: "FISH",       emoji: "🐟", label: "Poisson" },
+  { value: "VEGETARIAN", emoji: "🥗", label: "Végé" },
+  { value: "FESTIVE",    emoji: "🎉", label: "Festif" },
+  { value: "RECEPTION",  emoji: "🥂", label: "Récep." },
 ];
-
-type SwapCriteria = {
-  foodMode?: FoodMode;
-  budget?: "CHEAP" | "NORMAL" | "SPLURGE";
-  maxTotalTime?: number;
-  minTotalTime?: number;
-};
 
 export default function MealCard({
   plannedMeal: pm,
@@ -41,7 +34,7 @@ export default function MealCard({
   const [showSwap, setShowSwap] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [currentMeal, setCurrentMeal] = useState<Meal>(pm.meal);
-  const [swapping, setSwapping] = useState<string | null>(null); // which button is loading
+  const [loadingBtn, setLoadingBtn] = useState<string | null>(null);
 
   async function cancelMeal() {
     await fetch(`/api/planned-meals/${pm.id}`, { method: "DELETE" });
@@ -64,8 +57,12 @@ export default function MealCard({
     await applyMeal(meal);
   }
 
-  async function swapWith(label: string, criteria: SwapCriteria) {
-    setSwapping(label);
+  async function swap(btnKey: string, overrides: {
+    foodMode?: FoodMode;
+    budget?: string;
+    complexity?: "SIMPLE" | "ELABORATE";
+  }) {
+    setLoadingBtn(btnKey);
     try {
       const res = await fetch("/api/generate/slot", {
         method: "POST",
@@ -73,21 +70,17 @@ export default function MealCard({
         body: JSON.stringify({
           adults: 2,
           children: 2,
-          foodMode: criteria.foodMode ?? currentMeal.foodMode,
+          foodMode: overrides.foodMode ?? currentMeal.foodMode,
           seasonPref: "ALL_YEAR",
-          budget: criteria.budget ?? currentMeal.budget,
+          budget: overrides.budget ?? currentMeal.budget,
           mealType: pm.mealType,
           exclude: [currentMeal.name],
-          ...(criteria.maxTotalTime !== undefined && { maxTotalTime: criteria.maxTotalTime }),
-          ...(criteria.minTotalTime !== undefined && { minTotalTime: criteria.minTotalTime }),
+          ...(overrides.complexity && { complexity: overrides.complexity }),
         }),
       });
-      if (res.ok) {
-        const meal = await res.json();
-        await applyMeal(meal as Meal);
-      }
+      if (res.ok) await applyMeal(await res.json() as Meal);
     } finally {
-      setSwapping(null);
+      setLoadingBtn(null);
     }
   }
 
@@ -99,10 +92,9 @@ export default function MealCard({
         className="rounded-2xl p-4 transition-all"
         style={{ background: "var(--card)", border: "1px solid var(--border)" }}
       >
+        {/* En-tête du repas */}
         <div className="flex items-start gap-3">
-          {/* Grande icône du repas */}
           <span className="text-3xl shrink-0 leading-none mt-0.5">{mealEmoji(currentMeal)}</span>
-
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <span
@@ -122,11 +114,10 @@ export default function MealCard({
               {currentMeal.estimatedCost != null && <span>~{currentMeal.estimatedCost.toFixed(0)}€</span>}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-lg">{STATUS_CONFIG[pm.status].emoji}</span>
-          </div>
+          <span className="text-lg">{STATUS_CONFIG[pm.status].emoji}</span>
         </div>
 
+        {/* Boutons d'action */}
         <div className="flex items-center gap-2 mt-3">
           <button
             onClick={() => setShowRecipe(true)}
@@ -151,72 +142,102 @@ export default function MealCard({
             onClick={() => { setConfirmDelete(true); setShowSwap(false); }}
             className="w-9 h-9 rounded-xl flex items-center justify-center transition-all active:scale-95 shrink-0"
             style={{ background: "var(--muted)", color: "var(--muted-foreground)" }}
-            aria-label="Annuler ce repas"
           >
             🗑
           </button>
         </div>
 
-        {/* Panneau de swap contextuel */}
+        {/* Panneau de swap */}
         {showSwap && (
-          <div className="mt-3 space-y-2.5">
-            {/* Ligne 1 : Aléatoire + budget */}
-            <div className="flex gap-1.5">
-              <SwapBtn
-                label="🎲"
-                sublabel="Aléatoire"
-                loading={swapping === "random"}
-                onClick={() => swapWith("random", {})}
-                accent
-              />
-              <SwapBtn
-                label="€"
-                sublabel="Moins cher"
-                loading={swapping === "cheap"}
-                onClick={() => swapWith("cheap", { budget: "CHEAP" })}
-              />
-              <SwapBtn
-                label="€€€"
-                sublabel="Plus cher"
-                loading={swapping === "splurge"}
-                onClick={() => swapWith("splurge", { budget: "SPLURGE" })}
-              />
-              <SwapBtn
-                label="⚡"
-                sublabel="Rapide"
-                loading={swapping === "fast"}
-                onClick={() => swapWith("fast", { maxTotalTime: 25 })}
-              />
-              <SwapBtn
-                label="🕐"
-                sublabel="Élaboré"
-                loading={swapping === "long"}
-                onClick={() => swapWith("long", { minTotalTime: 45 })}
-              />
+          <div className="mt-3 space-y-2">
+
+            {/* Ligne 1 : modes alimentaires */}
+            <div className="flex gap-1">
+              {FOOD_MODE_OPTS.map(({ value, emoji, label }) => {
+                const isActive = currentMeal.foodMode === value;
+                return (
+                  <button
+                    key={value}
+                    onClick={() => swap(value, { foodMode: value })}
+                    disabled={loadingBtn !== null}
+                    className="flex-1 flex flex-col items-center gap-0.5 py-2 rounded-xl transition-all active:scale-90 disabled:opacity-50"
+                    style={{
+                      background: isActive ? "color-mix(in srgb, var(--terracotta) 15%, var(--muted))" : "var(--muted)",
+                      border: isActive ? "1.5px solid var(--terracotta)" : "1.5px solid transparent",
+                    }}
+                  >
+                    <span className="text-base leading-none">{loadingBtn === value ? "⏳" : emoji}</span>
+                    <span className="text-[9px]" style={{ color: "var(--muted-foreground)" }}>{label}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Ligne 2 : modes alimentaires */}
+            {/* Ligne 2 : budget + complexité */}
             <div className="flex gap-1.5">
-              {FOOD_MODE_OPTS.map(({ value, emoji }) => (
-                <SwapBtn
-                  key={value}
-                  label={emoji}
-                  sublabel={value === "MEAT" ? "Viande" : value === "FISH" ? "Poisson" : value === "VEGETARIAN" ? "Végé" : value === "FESTIVE" ? "Festif" : "Récep."}
-                  loading={swapping === value}
-                  active={currentMeal.foodMode === value}
-                  onClick={() => swapWith(value, { foodMode: value })}
-                />
-              ))}
+              <button
+                onClick={() => swap("cheap", { budget: "CHEAP" })}
+                disabled={loadingBtn !== null}
+                className="flex-1 flex flex-col items-center gap-0.5 py-2.5 rounded-xl transition-all active:scale-90 disabled:opacity-50"
+                style={{
+                  background: currentMeal.budget === "CHEAP" ? "color-mix(in srgb, var(--terracotta) 15%, var(--muted))" : "var(--muted)",
+                  border: currentMeal.budget === "CHEAP" ? "1.5px solid var(--terracotta)" : "1.5px solid transparent",
+                }}
+              >
+                <span className="text-sm font-semibold leading-none">{loadingBtn === "cheap" ? "⏳" : "€"}</span>
+                <span className="text-[9px]" style={{ color: "var(--muted-foreground)" }}>Serré</span>
+              </button>
+              <button
+                onClick={() => swap("splurge", { budget: "SPLURGE" })}
+                disabled={loadingBtn !== null}
+                className="flex-1 flex flex-col items-center gap-0.5 py-2.5 rounded-xl transition-all active:scale-90 disabled:opacity-50"
+                style={{
+                  background: currentMeal.budget === "SPLURGE" ? "color-mix(in srgb, var(--terracotta) 15%, var(--muted))" : "var(--muted)",
+                  border: currentMeal.budget === "SPLURGE" ? "1.5px solid var(--terracotta)" : "1.5px solid transparent",
+                }}
+              >
+                <span className="text-sm font-semibold leading-none">{loadingBtn === "splurge" ? "⏳" : "€€€"}</span>
+                <span className="text-[9px]" style={{ color: "var(--muted-foreground)" }}>Plaisir</span>
+              </button>
+              <button
+                onClick={() => swap("simple", { complexity: "SIMPLE" })}
+                disabled={loadingBtn !== null}
+                className="flex-1 flex flex-col items-center gap-0.5 py-2.5 rounded-xl transition-all active:scale-90 disabled:opacity-50"
+                style={{ background: "var(--muted)", border: "1.5px solid transparent" }}
+              >
+                <span className="text-base leading-none">{loadingBtn === "simple" ? "⏳" : "🍃"}</span>
+                <span className="text-[9px]" style={{ color: "var(--muted-foreground)" }}>Simple</span>
+              </button>
+              <button
+                onClick={() => swap("elaborate", { complexity: "ELABORATE" })}
+                disabled={loadingBtn !== null}
+                className="flex-1 flex flex-col items-center gap-0.5 py-2.5 rounded-xl transition-all active:scale-90 disabled:opacity-50"
+                style={{ background: "var(--muted)", border: "1.5px solid transparent" }}
+              >
+                <span className="text-base leading-none">{loadingBtn === "elaborate" ? "⏳" : "🔥"}</span>
+                <span className="text-[9px]" style={{ color: "var(--muted-foreground)" }}>Élaboré</span>
+              </button>
             </div>
 
-            {/* Ligne 3 : saisie manuelle */}
-            <button
-              onClick={() => { setShowPicker(true); setShowSwap(false); }}
-              className="w-full py-2 rounded-xl text-sm font-medium transition-all active:scale-95 flex items-center justify-center gap-2"
-              style={{ background: "var(--muted)", color: "var(--foreground)", border: "1px dashed var(--border)" }}
-            >
-              ✍️ Choisir manuellement
-            </button>
+            {/* Ligne 3 : aléatoire + manuel */}
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => swap("random", {})}
+                disabled={loadingBtn !== null}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                style={{ background: "var(--terracotta)", color: "white" }}
+              >
+                {loadingBtn === "random" ? "⏳" : "🎲"} Au hasard
+              </button>
+              <button
+                onClick={() => { setShowPicker(true); setShowSwap(false); }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all active:scale-95 flex items-center justify-center gap-2"
+                style={{ background: "var(--muted)", color: "var(--foreground)", border: "1px dashed var(--border)" }}
+              >
+                ✍️ Manuel
+              </button>
+            </div>
+
           </div>
         )}
 
@@ -242,7 +263,6 @@ export default function MealCard({
             </div>
           </div>
         )}
-
       </div>
 
       {showRecipe && <RecipeSheet meal={currentMeal} onClose={() => setShowRecipe(false)} />}
@@ -255,44 +275,5 @@ export default function MealCard({
         />
       )}
     </>
-  );
-}
-
-function SwapBtn({
-  label,
-  sublabel,
-  loading,
-  active,
-  accent,
-  onClick,
-}: {
-  label: string;
-  sublabel: string;
-  loading: boolean;
-  active?: boolean;
-  accent?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={loading}
-      className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 rounded-xl text-center transition-all active:scale-90 disabled:opacity-60"
-      style={{
-        background: accent
-          ? "var(--terracotta)"
-          : active
-          ? "color-mix(in srgb, var(--terracotta) 20%, var(--muted))"
-          : "var(--muted)",
-        color: accent ? "white" : "var(--foreground)",
-        border: active ? "1px solid var(--terracotta)" : "1px solid transparent",
-        minWidth: 0,
-      }}
-    >
-      <span className="text-base leading-none">{loading ? "⏳" : label}</span>
-      <span className="text-[9px] font-medium leading-none" style={{ color: accent ? "rgba(255,255,255,0.85)" : "var(--muted-foreground)" }}>
-        {sublabel}
-      </span>
-    </button>
   );
 }

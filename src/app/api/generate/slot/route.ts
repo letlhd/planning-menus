@@ -13,6 +13,7 @@ const SlotSchema = z.object({
   exclude: z.array(z.string()).default([]),
   maxTotalTime: z.number().int().optional(),
   minTotalTime: z.number().int().optional(),
+  complexity: z.enum(["SIMPLE", "ELABORATE"]).optional(),
 });
 
 function currentSeasonPref(): "SUMMER" | "WINTER" {
@@ -72,19 +73,21 @@ export async function POST(req: NextRequest) {
     return arr[Math.floor(Math.random() * arr.length)];
   }
 
-  type MealWithRecipe = { prepTime: number; cookTime: number };
-  function filterByTime<T extends MealWithRecipe>(arr: T[]): T[] {
+  type MealRow = { prepTime: number; cookTime: number; difficulty: string };
+  function filterMeals<T extends MealRow>(arr: T[]): T[] {
     return arr.filter((m) => {
       const total = m.prepTime + m.cookTime;
       if (params.maxTotalTime !== undefined && total > params.maxTotalTime) return false;
       if (params.minTotalTime !== undefined && total < params.minTotalTime) return false;
+      if (params.complexity === "SIMPLE" && (m.difficulty !== "EASY" || total > 30)) return false;
+      if (params.complexity === "ELABORATE" && m.difficulty === "EASY" && total < 40) return false;
       return true;
     });
   }
 
   // 1. Essayer les repas familiers (BDD connue)
   if (useFamiliar) {
-    const meals = filterByTime(await prisma.meal.findMany({
+    const meals = filterMeals(await prisma.meal.findMany({
       where: { ...baseFilter, isFamiliar: true },
       include: { recipe: true },
     }));
@@ -93,7 +96,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 2. Essayer les recettes élaborées en BDD (blogs)
-  const novelMeals = filterByTime(await prisma.meal.findMany({
+  const novelMeals = filterMeals(await prisma.meal.findMany({
     where: { ...baseFilter, isFamiliar: false },
     include: { recipe: true },
   }));
