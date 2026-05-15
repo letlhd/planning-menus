@@ -14,6 +14,7 @@ const SlotSchema = z.object({
   maxTotalTime: z.number().int().optional(),
   minTotalTime: z.number().int().optional(),
   complexity: z.enum(["SIMPLE", "ELABORATE"]).optional(),
+  ignoreRecent: z.boolean().default(false),
 });
 
 function currentSeasonPref(): "SUMMER" | "WINTER" {
@@ -28,11 +29,17 @@ export async function POST(req: NextRequest) {
   const settings = await prisma.settings.findUnique({ where: { id: "singleton" } });
   const dbRatio = settings?.dbRatio ?? 0.7;
 
-  const recentMeals = await prisma.plannedMeal.findMany({
-    where: { date: { gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000) } },
-    select: { meal: { select: { name: true } } },
-  });
-  const excludeNames = [...new Set([...recentMeals.map((pm: { meal: { name: string } }) => pm.meal.name), ...params.exclude])];
+  // Pour les swaps (ignoreRecent=true), on n'exclut pas les repas récents
+  // car ils viennent d'être générés et réduiraient trop le choix
+  const recentNames: string[] = [];
+  if (!params.ignoreRecent) {
+    const recentMeals = await prisma.plannedMeal.findMany({
+      where: { date: { gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000) } },
+      select: { meal: { select: { name: true } } },
+    });
+    recentNames.push(...recentMeals.map((pm: { meal: { name: string } }) => pm.meal.name));
+  }
+  const excludeNames = [...new Set([...recentNames, ...params.exclude])];
 
   // Filtre foodMode — cherche dans foodModes[] ET foodMode (compat)
   const foodModeFilter =
