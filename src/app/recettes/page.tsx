@@ -88,8 +88,12 @@ export default function RecettesPage() {
 
   useEffect(() => { fetchMeals(); }, []);
 
+  function normalize(s: string) {
+    return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  }
+
   const filtered = meals.filter((m) => {
-    const matchSearch = m.name.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = normalize(m.name).includes(normalize(search));
     const matchMode = !filterMode || m.foodMode === filterMode ||
       (filterMode === "VEGETARIAN" && (m.isVegetarian || m.isVegan)) ||
       (filterMode === "FISH" && m.isFish);

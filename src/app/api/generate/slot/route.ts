@@ -121,12 +121,19 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 4. Fallback ultime : n'importe quel repas en BDD
-  const fallbacks = await prisma.meal.findMany({
-    where: { name: { notIn: excludeNames } },
+  // 4. Fallback : même filtre foodMode mais sans budget ni saison
+  const fallbacks = filterMeals(await prisma.meal.findMany({
+    where: { ...foodModeFilter, name: { notIn: excludeNames } },
     include: { recipe: true },
-  });
+  }));
   const fallback = pickRandom(fallbacks);
+
+  // 5. Fallback ultime sans aucun filtre (ne devrait jamais arriver)
+  if (!fallback) {
+    const any = await prisma.meal.findMany({ where: { name: { notIn: excludeNames } }, include: { recipe: true } });
+    const anyMeal = pickRandom(any);
+    if (anyMeal) return NextResponse.json(anyMeal);
+  }
 
   if (fallback) return NextResponse.json(fallback);
   return NextResponse.json({ error: "No meal found" }, { status: 404 });
